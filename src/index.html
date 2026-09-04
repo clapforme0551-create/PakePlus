@@ -1,32 +1,2610 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bluesun 全球项目 · 按钮循环缩放</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* ===== 全局样式 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0e1a;
+            color: #f0f4ff;
+            font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
-            <form class="row" id="greet-form">
-                <input id="inputValue" placeholder="Enter a something..." />
-            </form>
-            <div class="resultBox">
-                <span>result: </span>
-                <span id="result"></span>
+        /* ===== 开场动画 ===== */
+        #intro-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            background: #05080f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1.8s ease, transform 1.8s ease;
+            overflow: hidden;
+        }
+        #intro-container.fade-out {
+            opacity: 0;
+            transform: scale(0.92);
+            pointer-events: none;
+        }
+        #intro-container.hidden {
+            display: none;
+        }
+
+        #stars-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+
+        #earth-wrapper {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            z-index: 2;
+            margin-bottom: 20px;
+            animation: floatEarth 6s ease-in-out infinite alternate;
+        }
+        @keyframes floatEarth {
+            0% {
+                transform: translateY(0px) scale(1);
+            }
+            100% {
+                transform: translateY(-16px) scale(1.02);
+            }
+        }
+        #earth {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #4a8fc0, #1a3a5a);
+            box-shadow: 0 0 80px rgba(60, 160, 220, 0.25), 0 0 160px rgba(60, 160, 220, 0.06);
+            position: relative;
+            overflow: hidden;
+            animation: spinEarth 20s linear infinite;
+        }
+        #earth::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 40%, rgba(80, 180, 100, 0.25) 0%, transparent 30%),
+                radial-gradient(circle at 70% 60%, rgba(60, 140, 80, 0.20) 0%, transparent 35%),
+                radial-gradient(circle at 45% 20%, rgba(100, 200, 120, 0.15) 0%, transparent 25%),
+                radial-gradient(circle at 10% 80%, rgba(40, 120, 60, 0.15) 0%, transparent 20%),
+                radial-gradient(circle at 85% 30%, rgba(70, 180, 90, 0.18) 0%, transparent 28%),
+                radial-gradient(circle at 55% 75%, rgba(50, 160, 80, 0.12) 0%, transparent 22%),
+                repeating-linear-gradient(45deg,
+                    rgba(100, 200, 255, 0.02) 0px,
+                    rgba(100, 200, 255, 0.02) 2px,
+                    transparent 2px,
+                    transparent 8px);
+            border-radius: 50%;
+            animation: spinEarth 20s linear infinite;
+            transform-origin: center center;
+        }
+        #earth::after {
+            content: '';
+            position: absolute;
+            top: -12%;
+            left: -12%;
+            width: 124%;
+            height: 124%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(100, 200, 255, 0.06), transparent 60%);
+            box-shadow: inset 0 0 60px rgba(100, 200, 255, 0.03);
+            pointer-events: none;
+        }
+        @keyframes spinEarth {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .glow-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(100, 200, 255, 0.04);
+            animation: pulseRing 4s ease-in-out infinite;
+        }
+        .glow-ring.r1 {
+            width: 320px;
+            height: 320px;
+            top: -30px;
+            left: -30px;
+            animation-delay: 0s;
+        }
+        .glow-ring.r2 {
+            width: 380px;
+            height: 380px;
+            top: -60px;
+            left: -60px;
+            animation-delay: 1.2s;
+        }
+        .glow-ring.r3 {
+            width: 440px;
+            height: 440px;
+            top: -90px;
+            left: -90px;
+            animation-delay: 2.4s;
+        }
+        @keyframes pulseRing {
+            0% {
+                opacity: 0.1;
+                transform: scale(0.98);
+            }
+            50% {
+                opacity: 0.3;
+                transform: scale(1.02);
+            }
+            100% {
+                opacity: 0.1;
+                transform: scale(0.98);
+            }
+        }
+
+        .intro-texts {
+            position: relative;
+            z-index: 3;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .intro-texts .main-title {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #f9d976, #f5b342);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 60px rgba(249, 217, 118, 0.08);
+        }
+        .intro-texts .sub-title {
+            font-size: 18px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            margin-top: 8px;
+            color: #7ec8e3;
+            text-shadow: 0 0 40px rgba(126, 200, 227, 0.06);
+            -webkit-text-fill-color: #7ec8e3;
+        }
+        .intro-texts .sub-title em {
+            font-style: normal;
+            color: #a0d4f0;
+            letter-spacing: 2px;
+        }
+
+        /* ---- 按钮：循环缩放引导 ---- */
+        .intro-btn {
+            position: relative;
+            z-index: 3;
+            margin-top: 30px;
+            padding: 14px 44px;
+            border: 1px solid rgba(100, 200, 255, 0.15);
+            border-radius: 60px;
+            background: rgba(100, 200, 255, 0.02);
+            color: #b0d4f0;
+            font-size: 16px;
+            font-weight: 400;
+            letter-spacing: 4px;
+            cursor: pointer;
+            transition: 0.4s ease;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 40px rgba(100, 200, 255, 0.02);
+            font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            /* 循环缩放动画：起始即播放 */
+            animation: pulseScale 2.8s ease-in-out infinite;
+        }
+        /* hover 放大幅度增大 (与循环动画叠加) */
+        .intro-btn:hover {
+            background: rgba(100, 200, 255, 0.04);
+            border-color: rgba(100, 200, 255, 0.25);
+            box-shadow: 0 0 60px rgba(100, 200, 255, 0.02), inset 0 0 60px rgba(100, 200, 255, 0.01);
+            transform: scale(1.12);
+        }
+        /* 点击时收缩 (反馈) */
+        .intro-btn:active {
+            transform: scale(0.92);
+            animation: none;
+        }
+
+        /* 循环缩放关键帧：从1.0 → 1.08 → 1.0，带缓动 */
+        @keyframes pulseScale {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.08);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* ===== 地图容器 ===== */
+        #map-container {
+            width: 100vw;
+            height: 100vh;
+            background: #0a0e1a;
+            position: relative;
+            display: none;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #0a0e1a;
+        }
+        #map-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #5a8aaa;
+            font-size: 16px;
+            z-index: 10;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+        #map-loading .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(100, 200, 255, 0.1);
+            border-top: 3px solid #7ec8e3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== 地图底图切换按钮 ===== */
+        #map-layer-toggle {
+            position: absolute;
+            bottom: 120px;
+            right: 20px;
+            z-index: 1100;
+            background: rgba(10, 14, 30, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(100, 200, 255, 0.06);
+            border-radius: 12px;
+            padding: 8px 10px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+        }
+        #map-layer-toggle button {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(100, 200, 255, 0.04);
+            border-radius: 8px;
+            color: #8ab4d6;
+            padding: 6px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            font-family: -apple-system, 'Segoe UI', sans-serif;
+            letter-spacing: 0.3px;
+        }
+        #map-layer-toggle button:hover {
+            background: rgba(100, 200, 255, 0.04);
+            border-color: rgba(100, 200, 255, 0.08);
+        }
+        #map-layer-toggle button.active {
+            background: rgba(100, 200, 255, 0.06);
+            border-color: rgba(100, 200, 255, 0.12);
+            color: #7ec8e3;
+        }
+
+        /* ===== 地图UI ===== */
+        .corner-decor {
+            position: absolute;
+            z-index: 500;
+            pointer-events: none;
+            width: 40px;
+            height: 40px;
+            border-color: rgba(100, 200, 255, 0.10);
+            border-style: solid;
+            border-width: 0;
+        }
+        .corner-decor.tl {
+            top: 12px;
+            left: 12px;
+            border-top-width: 2px;
+            border-left-width: 2px;
+        }
+        .corner-decor.tr {
+            top: 12px;
+            right: 12px;
+            border-top-width: 2px;
+            border-right-width: 2px;
+        }
+        .corner-decor.bl {
+            bottom: 12px;
+            left: 12px;
+            border-bottom-width: 2px;
+            border-left-width: 2px;
+        }
+        .corner-decor.br {
+            bottom: 12px;
+            right: 12px;
+            border-bottom-width: 2px;
+            border-right-width: 2px;
+        }
+
+        .guide-box {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(10, 14, 30, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(100, 200, 255, 0.06);
+            border-radius: 12px;
+            padding: 16px 22px;
+            max-width: 300px;
+            z-index: 1000;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+            display: none;
+        }
+        .guide-box h2 {
+            font-size: 18px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, #f9d976, #7ec8e3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .guide-box h2 strong {
+            -webkit-text-fill-color: #f9d976;
+        }
+        .guide-box p {
+            font-size: 13px;
+            color: #8ab4d6;
+            margin: 4px 0;
+        }
+        .guide-box .stat {
+            display: inline-block;
+            background: rgba(100, 200, 255, 0.04);
+            padding: 3px 14px;
+            border-radius: 30px;
+            margin-top: 6px;
+            color: #7ec8e3;
+            font-size: 13px;
+            border: 1px solid rgba(100, 200, 255, 0.04);
+        }
+
+        .lang-switch {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1100;
+            background: rgba(10, 14, 30, 0.7);
+            backdrop-filter: blur(16px);
+            border-radius: 40px;
+            border: 1px solid rgba(100, 200, 255, 0.06);
+            padding: 4px 6px;
+            display: none;
+            gap: 2px;
+            flex-wrap: wrap;
+            justify-content: center;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+            max-width: 95%;
+        }
+        .lang-switch button {
+            background: transparent;
+            border: none;
+            color: #6a8aaa;
+            padding: 5px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.25s;
+            font-weight: 400;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+        }
+        .lang-switch button.active {
+            background: rgba(100, 200, 255, 0.08);
+            color: #7ec8e3;
+            border: 1px solid rgba(100, 200, 255, 0.06);
+        }
+        .lang-switch button:hover:not(.active) {
+            color: #b0d4f0;
+        }
+
+        .filter-panel {
+            position: absolute;
+            top: 82px;
+            right: 16px;
+            background: rgba(10, 14, 30, 0.75);
+            backdrop-filter: blur(18px);
+            border-radius: 16px;
+            padding: 18px 20px 20px;
+            z-index: 1000;
+            border: 1px solid rgba(100, 200, 255, 0.04);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            max-width: 300px;
+            width: 100%;
+            max-height: calc(100vh - 170px);
+            overflow-y: auto;
+            pointer-events: auto;
+            transition: 0.25s;
+            display: none;
+        }
+        .filter-panel::-webkit-scrollbar {
+            width: 3px;
+        }
+        .filter-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+        }
+        .filter-panel::-webkit-scrollbar-thumb {
+            background: #7ec8e3;
+            border-radius: 10px;
+        }
+        .filter-panel .filter-title {
+            font-size: 15px;
+            font-weight: 400;
+            color: #b0d4f0;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(100, 200, 255, 0.03);
+            padding-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .filter-panel .filter-title button {
+            background: rgba(100, 200, 255, 0.04);
+            border: 1px solid rgba(100, 200, 255, 0.04);
+            border-radius: 30px;
+            color: #7ec8e3;
+            padding: 4px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .filter-panel .filter-title button:hover {
+            background: rgba(100, 200, 255, 0.06);
+        }
+        .filter-group {
+            margin-bottom: 14px;
+        }
+        .filter-group label {
+            display: block;
+            font-size: 11px;
+            color: #5a7a9a;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+            font-weight: 300;
+            text-transform: uppercase;
+        }
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(100, 200, 255, 0.04);
+            border-radius: 30px;
+            color: #d0e4f0;
+            padding: 7px 14px;
+            font-size: 13px;
+            outline: none;
+            transition: 0.15s;
+            appearance: auto;
+        }
+        .filter-group select option {
+            background: #0a0e1a;
+            color: #d0e4f0;
+        }
+        .filter-group select:focus,
+        .filter-group input:focus {
+            border-color: rgba(100, 200, 255, 0.10);
+        }
+        .filter-group input::placeholder {
+            color: #3a5a7a;
+            font-size: 12px;
+        }
+        .filter-row {
+            display: flex;
+            gap: 10px;
+        }
+        .filter-row .filter-group {
+            flex: 1;
+        }
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+        .filter-actions button {
+            flex: 1;
+            background: rgba(100, 200, 255, 0.02);
+            border: 1px solid rgba(100, 200, 255, 0.04);
+            border-radius: 30px;
+            color: #8ab4d6;
+            padding: 8px 0;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+            min-width: 50px;
+        }
+        .filter-actions button:hover {
+            background: rgba(100, 200, 255, 0.04);
+        }
+        .filter-actions .reset-btn {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .filter-actions .export-btn {
+            background: rgba(100, 200, 255, 0.03);
+            border-color: rgba(100, 200, 255, 0.06);
+            color: #7ec8e3;
+        }
+        .filter-actions .export-btn:hover {
+            background: rgba(100, 200, 255, 0.06);
+        }
+
+        .custom-zoom {
+            position: absolute;
+            left: 20px;
+            bottom: 120px;
+            z-index: 1100;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: auto;
+        }
+        .custom-zoom button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(10, 14, 30, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(100, 200, 255, 0.04);
+            color: #7ec8e3;
+            font-size: 20px;
+            font-weight: 300;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        .custom-zoom button:hover {
+            background: rgba(100, 200, 255, 0.04);
+        }
+
+        .hot-projects {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 1000px;
+            background: rgba(10, 14, 30, 0.7);
+            backdrop-filter: blur(18px);
+            border-radius: 16px;
+            border: 1px solid rgba(100, 200, 255, 0.03);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            padding: 14px 18px;
+            z-index: 1000;
+            pointer-events: auto;
+            overflow: hidden;
+            display: none;
+        }
+        .hot-projects .hot-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #7ec8e3;
+            font-weight: 300;
+            font-size: 14px;
+            letter-spacing: 1px;
+            padding: 0 4px;
+        }
+        .hot-projects .hot-title span {
+            background: rgba(100, 200, 255, 0.03);
+            padding: 2px 14px;
+            border-radius: 30px;
+            font-size: 11px;
+            color: #5a8aaa;
+            border: 1px solid rgba(100, 200, 255, 0.03);
+        }
+        .hot-scroll-wrapper {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+        .hot-scroll {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding: 6px 4px 12px;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        .hot-scroll::-webkit-scrollbar {
+            height: 3px;
+        }
+        .hot-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+        }
+        .hot-scroll::-webkit-scrollbar-thumb {
+            background: #7ec8e3;
+            border-radius: 10px;
+        }
+        .hot-card {
+            flex: 0 0 220px;
+            min-width: 180px;
+            background: rgba(255, 255, 255, 0.01);
+            border-radius: 12px;
+            padding: 14px 16px;
+            border-left: 2px solid rgba(100, 200, 255, 0.04);
+            transition: 0.25s;
+            cursor: pointer;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
+        }
+        .hot-card:hover {
+            background: rgba(100, 200, 255, 0.02);
+            transform: scale(1.02);
+        }
+        .hot-card .card-title {
+            font-weight: 400;
+            font-size: 14px;
+            color: #d0e4f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: 0.3px;
+        }
+        .hot-card .card-meta {
+            font-size: 11px;
+            color: #5a8aaa;
+            margin-top: 6px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 10px;
+        }
+        .hot-card .card-meta span {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0 8px;
+            border-radius: 20px;
+            border: 1px solid rgba(100, 200, 255, 0.02);
+        }
+        .hot-card .card-power {
+            font-size: 13px;
+            font-weight: 400;
+            color: #7ec8e3;
+            margin-top: 4px;
+        }
+        .hot-card .card-video-links {
+            margin-top: 8px;
+            font-size: 11px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .hot-card .card-video-links a {
+            color: #5a8aaa;
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(100, 200, 255, 0.04);
+        }
+        .hot-card .card-video-links a:hover {
+            color: #7ec8e3;
+        }
+        .hot-card .card-video-links .no-link {
+            color: #3a5a7a;
+            font-size: 10px;
+        }
+
+        /* ===== Leaflet 自定义 ===== */
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: radial-gradient(circle at 30% 30%, #7ec8e3, #1a3a5a);
+            border-radius: 50%;
+            border: 2px solid rgba(100, 200, 255, 0.3);
+            box-shadow: 0 0 30px rgba(100, 200, 255, 0.1);
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .custom-marker.small {
+            width: 34px;
+            height: 34px;
+            font-size: 12px;
+        }
+        .custom-marker.large {
+            width: 54px;
+            height: 54px;
+            font-size: 20px;
+        }
+
+        .custom-info-window {
+            background: rgba(10, 14, 30, 0.92);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(100, 200, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px 18px 18px;
+            min-width: 240px;
+            max-width: 380px;
+            max-height: 400px;
+            overflow-y: auto;
+            color: #d0e4f0;
+            box-shadow: 0 16px 60px rgba(0, 0, 0, 0.8);
+        }
+        .custom-info-window::-webkit-scrollbar {
+            width: 3px;
+        }
+        .custom-info-window::-webkit-scrollbar-thumb {
+            background: #7ec8e3;
+            border-radius: 10px;
+        }
+        .custom-info-window .country-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #7ec8e3;
+            border-bottom: 1px solid rgba(100, 200, 255, 0.08);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        .custom-info-window .project-count-badge {
+            font-size: 22px;
+            font-weight: 300;
+            color: #7ec8e3;
+        }
+        .custom-info-window .project-list {
+            margin-top: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .custom-info-window .project-list::-webkit-scrollbar {
+            width: 3px;
+        }
+        .custom-info-window .project-list::-webkit-scrollbar-thumb {
+            background: #7ec8e3;
+            border-radius: 10px;
+        }
+        .custom-info-window .project-item {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-left: 2px solid rgba(100, 200, 255, 0.08);
+        }
+        .custom-info-window .project-item .title {
+            font-weight: 500;
+            color: #d0e4f0;
+            font-size: 14px;
+        }
+        .custom-info-window .project-item .desc {
+            font-size: 11px;
+            color: #6a8aaa;
+            margin: 4px 0 6px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 10px;
+        }
+        .custom-info-window .project-item .video-links {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 11px;
+        }
+        .custom-info-window .project-item .video-links a {
+            color: #5a8aaa;
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(100, 200, 255, 0.05);
+        }
+        .custom-info-window .project-item .video-links a:hover {
+            color: #7ec8e3;
+        }
+        .custom-info-window .project-item .video-links .no-link {
+            color: #3a5a7a;
+            font-size: 10px;
+        }
+        .custom-info-window .project-detail-more {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #3a5a7a;
+            border-top: 1px solid rgba(255, 255, 255, 0.02);
+            padding-top: 8px;
+            text-align: center;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: transparent !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+        }
+        .leaflet-popup-tip {
+            background: rgba(10, 14, 30, 0.92) !important;
+            border: 1px solid rgba(100, 200, 255, 0.05) !important;
+        }
+        .leaflet-popup-content {
+            margin: 0 !important;
+            padding: 0 !important;
+            min-width: 240px;
+        }
+        .leaflet-container {
+            background: #0a0e1a !important;
+        }
+        .leaflet-control-zoom a {
+            background: rgba(10, 14, 30, 0.7) !important;
+            color: #7ec8e3 !important;
+            border: 1px solid rgba(100, 200, 255, 0.05) !important;
+        }
+        .leaflet-control-zoom a:hover {
+            background: rgba(100, 200, 255, 0.05) !important;
+        }
+        .leaflet-tile-pane {
+            filter: brightness(0.85) saturate(0.7) !important;
+        }
+
+        @media (max-width: 720px) {
+            .intro-texts .main-title {
+                font-size: 22px;
+                letter-spacing: 2px;
+            }
+            .intro-texts .sub-title {
+                font-size: 14px;
+                letter-spacing: 2px;
+            }
+            #earth-wrapper {
+                width: 180px;
+                height: 180px;
+            }
+            .intro-btn {
+                padding: 12px 28px;
+                font-size: 14px;
+                letter-spacing: 2px;
+            }
+            .filter-panel {
+                top: 78px;
+                right: 12px;
+                max-width: 220px;
+                padding: 12px 14px;
+            }
+            .guide-box {
+                max-width: 150px;
+                padding: 10px 14px;
+                top: 12px;
+                left: 12px;
+            }
+            .guide-box h2 {
+                font-size: 14px;
+            }
+            .hot-projects {
+                bottom: 16px;
+                padding: 10px 12px;
+                width: 96%;
+            }
+            .hot-card {
+                flex: 0 0 150px;
+                min-width: 140px;
+                padding: 10px 12px;
+            }
+            .custom-info-window {
+                min-width: 200px;
+                max-width: 300px;
+                padding: 14px 16px;
+            }
+            .lang-switch {
+                top: 12px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 4px 6px;
+            }
+            .lang-switch button {
+                padding: 3px 8px;
+                font-size: 10px;
+            }
+            .custom-zoom {
+                left: 12px;
+                bottom: 100px;
+            }
+            .custom-zoom button {
+                width: 34px;
+                height: 34px;
+                font-size: 18px;
+            }
+            #map-layer-toggle {
+                bottom: 100px;
+                right: 12px;
+                padding: 6px 8px;
+            }
+            #map-layer-toggle button {
+                font-size: 10px;
+                padding: 4px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== 开场 ===== -->
+    <div id="intro-container">
+        <canvas id="stars-canvas"></canvas>
+        <div id="earth-wrapper">
+            <div class="glow-ring r1"></div>
+            <div class="glow-ring r2"></div>
+            <div class="glow-ring r3"></div>
+            <div id="earth"></div>
+        </div>
+        <div class="intro-texts">
+            <div class="main-title">Bluesun Global Projects - Case by Case</div>
+            <div class="sub-title"><em>Your Global Partner for Advanced Energy Storage Solutions</em></div>
+        </div>
+        <!-- 按钮：Explore Now，自带循环缩放动画 -->
+        <button class="intro-btn" id="exploreBtn">✦ Explore Now ✦</button>
+    </div>
+
+    <!-- ===== 地图界面 ===== -->
+    <div id="map-container">
+        <div id="map"></div>
+        <div id="map-loading">
+            <div class="spinner"></div>
+            <div>🌍 地图加载中...</div>
+            <div style="font-size:12px;margin-top:8px;color:#3a5a7a;">使用 OpenStreetMap 全球服务</div>
+        </div>
+    </div>
+
+    <div class="corner-decor tl"></div>
+    <div class="corner-decor tr"></div>
+    <div class="corner-decor bl"></div>
+    <div class="corner-decor br"></div>
+
+    <div class="guide-box" id="guideBox">
+        <h2>⚡ <strong>Bluesun</strong> <span id="guideTitle">全球项目</span></h2>
+        <p><span id="countryCount">0</span> <span id="guideCountries">个国家</span> · <span id="projectTotalCount">0</span>
+            <span id="guideProjects">个项目</span></p>
+        <div class="stat" id="guideStat">🔍 点击标记查看详情</div>
+    </div>
+
+    <div class="lang-switch" id="langSwitch">
+        <button class="active" data-lang="zh">中文</button>
+        <button data-lang="en">English</button>
+        <button data-lang="fr">Français</button>
+        <button data-lang="de">Deutsch</button>
+        <button data-lang="es">Español</button>
+        <button data-lang="ru">Русский</button>
+    </div>
+
+    <div class="custom-zoom" id="customZoom">
+        <button id="zoomIn">+</button>
+        <button id="zoomOut">−</button>
+    </div>
+
+    <!-- ===== 地图底图切换按钮 ===== -->
+    <div id="map-layer-toggle">
+        <button class="active" data-layer="osm" id="layerOsm">🗺️ OpenStreetMap</button>
+        <button data-layer="satellite" id="layerSatellite">🛰️ 卫星图</button>
+        <button data-layer="dark" id="layerDark">🌙 暗色</button>
+    </div>
+
+    <div class="filter-panel" id="filterPanel">
+        <div class="filter-title">
+            <span id="filterTitle">📊 筛选项目</span>
+            <button id="resetAllFilters"><span id="resetBtnText">重置</span></button>
+        </div>
+        <div class="filter-group">
+            <label id="labelContinent">🌎 大洲</label>
+            <select id="filterContinent">
+                <option value="all" data-zh="全部" data-en="All" data-fr="Tous" data-de="Alle" data-es="Todos"
+                    data-ru="Все">全部</option>
+                <option value="Asia" data-zh="亚洲" data-en="Asia" data-fr="Asie" data-de="Asien" data-es="Asia"
+                    data-ru="Азия">亚洲</option>
+                <option value="Europe" data-zh="欧洲" data-en="Europe" data-fr="Europe" data-de="Europa" data-es="Europa"
+                    data-ru="Европа">欧洲</option>
+                <option value="Africa" data-zh="非洲" data-en="Africa" data-fr="Afrique" data-de="Afrika" data-es="África"
+                    data-ru="Африка">非洲</option>
+                <option value="America" data-zh="美洲" data-en="America" data-fr="Amérique" data-de="Amerika"
+                    data-es="América" data-ru="Америка">美洲</option>
+                <option value="Pacific Islands" data-zh="太平洋" data-en="Pacific" data-fr="Pacifique" data-de="Pazifik"
+                    data-es="Pacífico" data-ru="Тихий океан">太平洋</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label id="labelCountry">🏙️ 国家</label>
+            <select id="filterCountry">
+                <option value="all" data-zh="全部国家" data-en="All Countries" data-fr="Tous les pays"
+                    data-de="Alle Länder" data-es="Todos los países" data-ru="Все страны">全部国家</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label id="labelCity">🏙️ 城市</label>
+            <input type="text" id="filterCity" placeholder="输入城市名称" data-zh-placeholder="输入城市名称"
+                data-en-placeholder="Enter city name" data-fr-placeholder="Entrez le nom de la ville"
+                data-de-placeholder="Stadtname eingeben" data-es-placeholder="Ingrese nombre de ciudad"
+                data-ru-placeholder="Введите название города" />
+        </div>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label id="labelScene">📂 应用场景</label>
+                <select id="filterScene">
+                    <option value="all" data-zh="全部" data-en="All" data-fr="Tous" data-de="Alle" data-es="Todos"
+                        data-ru="Все">全部</option>
+                    <option value="工厂" data-zh="工厂" data-en="Factory" data-fr="Usine" data-de="Fabrik"
+                        data-es="Fábrica" data-ru="Завод">工厂</option>
+                    <option value="办公楼" data-zh="办公楼" data-en="Office" data-fr="Bureau" data-de="Büro"
+                        data-es="Oficina" data-ru="Офис">办公楼</option>
+                    <option value="医院" data-zh="医院" data-en="Hospital" data-fr="Hôpital" data-de="Krankenhaus"
+                        data-es="Hospital" data-ru="Больница">医院</option>
+                    <option value="学校" data-zh="学校" data-en="School" data-fr="École" data-de="Schule"
+                        data-es="Escuela" data-ru="Школа">学校</option>
+                    <option value="酒店" data-zh="酒店" data-en="Hotel" data-fr="Hôtel" data-de="Hotel" data-es="Hotel"
+                        data-ru="Отель">酒店</option>
+                    <option value="度假村" data-zh="度假村" data-en="Resort" data-fr="Station" data-de="Resort"
+                        data-es="Complejo" data-ru="Курорт">度假村</option>
+                    <option value="别墅" data-zh="别墅" data-en="Villa" data-fr="Villa" data-de="Villa" data-es="Villa"
+                        data-ru="Вилла">别墅</option>
+                    <option value="农场" data-zh="农场" data-en="Farm" data-fr="Ferme" data-de="Bauernhof"
+                        data-es="Granja" data-ru="Ферма">农场</option>
+                    <option value="矿场" data-zh="矿场" data-en="Mine" data-fr="Mine" data-de="Mine" data-es="Mina"
+                        data-ru="Шахта">矿场</option>
+                    <option value="教堂" data-zh="教堂" data-en="Church" data-fr="Église" data-de="Kirche"
+                        data-es="Iglesia" data-ru="Церковь">教堂</option>
+                    <option value="快递站" data-zh="快递站" data-en="Courier" data-fr="Courrier" data-de="Kurier"
+                        data-es="Mensajería" data-ru="Курьерская">快递站</option>
+                    <option value="充电站" data-zh="充电站" data-en="Charging" data-fr="Recharge" data-de="Ladestation"
+                        data-es="Carga" data-ru="Зарядная">充电站</option>
+                    <option value="其他" data-zh="其他" data-en="Other" data-fr="Autre" data-de="Andere" data-es="Otro"
+                        data-ru="Другое">其他</option>
+                </select>
             </div>
-            <div class="invokeBox">
-                <button id="openUrl">open_url_browser</button>
-                <button id="openUrlNew">open_url_new</button>
-                <button id="runCommand">run_command</button>
-                <button id="downloadFile">download_file</button>
-                <button id="getExeDir">get_exe_dir</button>
-                <button id="getEnvVar">get_env_var</button>
-                <button id="findPort">find_port</button>
+            <div class="filter-group">
+                <label id="labelFunction">⚡ 功能</label>
+                <select id="filterFunction">
+                    <option value="all" data-zh="全部" data-en="All" data-fr="Tous" data-de="Alle" data-es="Todos"
+                        data-ru="Все">全部</option>
+                    <option value="备用电源" data-zh="备用电源" data-en="Backup" data-fr="Secours" data-de="Reserve"
+                        data-es="Respaldo" data-ru="Резерв">备用电源</option>
+                    <option value="电力自由" data-zh="电力自由" data-en="Energy Freedom" data-fr="Liberté énergétique"
+                        data-de="Energiefreiheit" data-es="Libertad energética" data-ru="Энергосвобода">电力自由</option>
+                    <option value="减少电费" data-zh="减少电费" data-en="Cost Saving" data-fr="Économie"
+                        data-de="Kosteneinsparung" data-es="Ahorro" data-ru="Экономия">减少电费</option>
+                    <option value="自发自用" data-zh="自发自用" data-en="Self-consumption" data-fr="Autoconsommation"
+                        data-de="Eigenverbrauch" data-es="Autoconsumo" data-ru="Самопотребление">自发自用</option>
+                    <option value="削峰填谷" data-zh="削峰填谷" data-en="Peak Shaving" data-fr="Lissage"
+                        data-de="Lastspitzenkappung" data-es="Recorte de picos" data-ru="Сглаживание пиков">削峰填谷
+                    </option>
+                    <option value="并网卖电" data-zh="并网卖电" data-en="Grid Selling" data-fr="Vente au réseau"
+                        data-de="Netzeinspeisung" data-es="Venta a red" data-ru="Продажа в сеть">并网卖电</option>
+                    <option value="离网" data-zh="离网" data-en="Off-grid" data-fr="Hors réseau" data-de="Inselnetz"
+                        data-es="Fuera de red" data-ru="Автономный">离网</option>
+                    <option value="充电桩" data-zh="充电桩" data-en="Charging Pile" data-fr="Borne de recharge"
+                        data-de="Ladesäule" data-es="Punto de carga" data-ru="Зарядная станция">充电桩</option>
+                </select>
             </div>
-        </main>
-    </body>
+        </div>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label id="labelPower">🔋 功率 (kW)</label>
+                <input type="text" id="filterPower" placeholder="如: 100-500" data-zh-placeholder="如: 100-500"
+                    data-en-placeholder="e.g. 100-500" data-fr-placeholder="ex: 100-500"
+                    data-de-placeholder="z.B. 100-500" data-es-placeholder="ej. 100-500"
+                    data-ru-placeholder="например: 100-500" />
+            </div>
+            <div class="filter-group">
+                <label id="labelCapacity">🧊 容量 (kWh)</label>
+                <input type="text" id="filterCapacity" placeholder="如: 200-1000" data-zh-placeholder="如: 200-1000"
+                    data-en-placeholder="e.g. 200-1000" data-fr-placeholder="ex: 200-1000"
+                    data-de-placeholder="z.B. 200-1000" data-es-placeholder="ej. 200-1000"
+                    data-ru-placeholder="например: 200-1000" />
+            </div>
+        </div>
+        <div class="filter-group">
+            <label id="labelInstallDate">📅 安装时间</label>
+            <input type="text" id="filterInstallDate" placeholder="如: 2025 或 2025-6"
+                data-zh-placeholder="如: 2025 或 2025-6" data-en-placeholder="e.g. 2025 or 2025-6"
+                data-fr-placeholder="ex: 2025 ou 2025-6" data-de-placeholder="z.B. 2025 oder 2025-6"
+                data-es-placeholder="ej. 2025 o 2025-6" data-ru-placeholder="например: 2025 или 2025-6" />
+        </div>
+        <div class="filter-actions">
+            <button id="applyFilters"><span id="applyBtnText">🔍 筛选</span></button>
+            <button class="reset-btn" id="resetFilters"><span id="clearBtnText">清空</span></button>
+            <button class="export-btn" id="exportExcel"><span id="exportBtnText">📥 导出Excel</span></button>
+        </div>
+    </div>
+
+    <div class="hot-projects" id="hotProjects">
+        <div class="hot-title">
+            <span id="hotTitle">🔥 热门大项目</span>
+            <span id="hotCount">0 个项目</span>
+        </div>
+        <div class="hot-scroll-wrapper">
+            <div class="hot-scroll" id="hotScroll"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+    <!-- XLSX -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+    </script>
+
+    <script>
+        // ================================================================
+        // 1. 开场动画
+        // ================================================================
+        (function() {
+            var introContainer = document.getElementById('intro-container');
+            var canvas = document.getElementById('stars-canvas');
+            var ctx = canvas.getContext('2d');
+            var w, h;
+
+            function resizeCanvas() {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            var stars = [];
+            for (var i = 0; i < 400; i++) {
+                stars.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    size: 0.3 + Math.random() * 1.8,
+                    speed: 0.002 + Math.random() * 0.008,
+                    layer: Math.random() > 0.6 ? 1 : 0
+                });
+            }
+            var starFrame = 0;
+            var animId = null;
+
+            function drawStars() {
+                ctx.clearRect(0, 0, w, h);
+                var grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.8);
+                grad.addColorStop(0, '#0a1a2a');
+                grad.addColorStop(0.6, '#050a12');
+                grad.addColorStop(1, '#020408');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, w, h);
+
+                for (var i = 0; i < stars.length; i++) {
+                    var s = stars[i];
+                    var offsetX = Math.sin(starFrame * s.speed + s.x) * 0.3;
+                    var offsetY = Math.cos(starFrame * s.speed * 0.7 + s.y) * 0.3;
+                    var x = s.x + offsetX;
+                    var y = s.y + offsetY;
+                    var size = s.size * (s.layer === 1 ? 1.4 : 0.8);
+                    var alpha = 0.3 + Math.sin(starFrame * s.speed + s.x) * 0.1 + 0.3;
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+                    var brightness = s.layer === 1 ? 220 : 160;
+                    ctx.fillStyle = 'rgba(' + brightness + ', ' + (brightness + 20) + ', 255, ' + (alpha * 0.5) +
+                        ')';
+                    ctx.fill();
+
+                    if (s.layer === 1 && size > 1.2) {
+                        ctx.shadowColor = 'rgba(100, 200, 255, 0.01)';
+                        ctx.shadowBlur = 30;
+                        ctx.beginPath();
+                        ctx.arc(x, y, size * 1.5, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(100, 200, 255, ' + (alpha * 0.02) + ')';
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                }
+                starFrame++;
+                if (introContainer && !introContainer.classList.contains('hidden')) {
+                    animId = requestAnimationFrame(drawStars);
+                }
+            }
+            drawStars();
+
+            var exploreBtn = document.getElementById('exploreBtn');
+            exploreBtn.addEventListener('click', function() {
+                // 点击后停止循环动画，执行俯冲
+                exploreBtn.style.animation = 'none';
+
+                introContainer.style.transition = 'transform 1.2s cubic-bezier(0.3, 0.0, 0.2, 1.0), opacity 0.8s ease';
+                introContainer.style.transform = 'scale(1.8)';
+                introContainer.style.opacity = '0';
+
+                setTimeout(function() {
+                    introContainer.classList.add('hidden');
+                    if (animId) cancelAnimationFrame(animId);
+                    document.getElementById('map-container').style.display = 'block';
+                    document.getElementById('guideBox').style.display = 'block';
+                    document.getElementById('langSwitch').style.display = 'flex';
+                    document.getElementById('customZoom').style.display = 'flex';
+                    document.getElementById('filterPanel').style.display = 'block';
+                    document.getElementById('hotProjects').style.display = 'block';
+                    document.getElementById('map-layer-toggle').style.display = 'flex';
+                    setTimeout(function() {
+                        initMap();
+                    }, 300);
+                }, 1400);
+            });
+        })();
+
+        // ================================================================
+        // 2. 地图数据（完整项目列表）
+        // ================================================================
+        var rawProjects = [
+            { country: "缅甸", city: "仰光", title: "BSM50KWx3+600kWh 储能", scene: "螺丝厂", func: "电力自由", power: "150",
+                capacity: "600", install: "2025-7", youtube: "https://youtu.be/CG5uacDTC5A",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/660558940120223/" },
+            { country: "缅甸", city: "仰光", title: "150kW+600kWh 项目", scene: "螺丝厂", func: "电力自由", power: "150",
+                capacity: "600", install: "2025-8", youtube: "https://youtu.be/Wi1Yg5LxyiE",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/24191011770562952" },
+            { country: "缅甸", city: "仰光", title: "1mw+1.2mwh 项目", scene: "办公楼", func: "备用电源", power: "1000",
+                capacity: "1200", install: "2025", youtube: "https://youtu.be/Q2srH0pl6A8",
+                facebook: "https://www.facebook.com/reel/4085566508425037" },
+            { country: "缅甸", city: "仰光", title: "150kW/360kWh ESS", scene: "快递站", func: "备用电源", power: "150",
+                capacity: "360", install: "2025", youtube: "", facebook: "" },
+            { country: "泰国", city: "曼谷", title: "1MW On-Grid 系统", scene: "国际学校", func: "纯并网", power: "1000",
+                capacity: "0", install: "2020", youtube: "https://www.youtube.com/watch?v=cDjcHgg_-KQ",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1375124899872270/" },
+            { country: "泰国", city: "曼谷", title: "100kW&357kWh 车棚", scene: "度假村", func: "充电桩", power: "100",
+                capacity: "357", install: "2026", youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "泰国", city: "曼谷", title: "1.7MWH 储能集装箱", scene: "医院", func: "备用电源", power: "", capacity: "1700",
+                install: "2023", youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "泰国", city: "曼谷", title: "500KW On-Grid", scene: "家居装饰工厂", func: "纯并网", power: "500",
+                capacity: "0", install: "2022", youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "泰国", city: "曼谷", title: "100kW/200kWh ESS", scene: "别墅", func: "备用电源", power: "100",
+                capacity: "200", install: "2023", youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "泰国", city: "甲米府", title: "250KW On-Grid*2", scene: "皮皮岛", func: "并网自发自用", power: "500",
+                capacity: "0", install: "2026", youtube: "可以公开", facebook: "可以公开" },
+            { country: "马尔代夫", city: "", title: "1MW 储能系统", scene: "度假村", func: "光伏储能/降电费", power: "1000",
+                capacity: "1000", install: "2024", youtube: "https://www.youtube.com/watch?v=yVrQRKkzK9w",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1764957654025668" },
+            { country: "柬埔寨", city: "", title: "150kw 储能系统", scene: "", func: "", power: "150", capacity: "", install: "",
+                youtube: "https://youtu.be/Oe-vjG5nUUQ",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1439681844115373" },
+            { country: "菲律宾", city: "Cebu", title: "925kw 储能系统", scene: "塑料工厂", func: "减少电费", power: "925",
+                capacity: "", install: "2025", youtube: "https://youtu.be/QI8Gt9cIzCw",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1280739537039578" },
+            { country: "菲律宾", city: "Cebu", title: "Project Video (Sunny)", scene: "塑料工厂", func: "减少电费", power: "",
+                capacity: "", install: "2025", youtube: "https://youtu.be/pV-Cwm0mTww",
+                facebook: "https://www.facebook.com/reel/1740855797120633" },
+            { country: "马来西亚", city: "", title: "100KW+480kWh", scene: "酒店", func: "纯离网/备用", power: "100",
+                capacity: "480", install: "2024", youtube: "https://youtu.be/8I35d9h9O1w",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/787219277304839" },
+            { country: "越南", city: "", title: "4MW On Grid 电站", scene: "", func: "", power: "4000", capacity: "",
+                install: "", youtube: "https://youtu.be/oWA2AueZPOE",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1746803119278296" },
+            { country: "越南", city: "河内", title: "360kW On Grid", scene: "工厂", func: "减少电费", power: "360",
+                capacity: "", install: "2025", youtube: "https://youtu.be/9bOHEKRGmzU",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1410559743330765" },
+            { country: "越南", city: "", title: "Solar Vinfast EV 充电站", scene: "充电站", func: "充电桩", power: "",
+                capacity: "", install: "", youtube: "https://youtu.be/Y-nnKV734KA",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1292212459065066" },
+            { country: "越南", city: "河内", title: "260KW On-Grid HJT720W", scene: "工厂", func: "减少电费", power: "260",
+                capacity: "", install: "2025", youtube: "https://youtu.be/6oOQrBfGn98",
+                facebook: "https://www.facebook.com/reel/777373914898397" },
+            { country: "越南", city: "", title: "4MW on-grid 项目", scene: "", func: "", power: "4000", capacity: "",
+                install: "", youtube: "https://youtu.be/ocVFh8Lub8U",
+                facebook: "https://www.facebook.com/reel/1127855652147156" },
+            { country: "越南", city: "", title: "4MW 光伏电站", scene: "", func: "", power: "4000", capacity: "", install: "",
+                youtube: "https://youtu.be/VUAhhqutbsg",
+                facebook: "https://www.facebook.com/reel/1529344241596739" },
+            { country: "越南", city: "河内", title: "Garment Factory 400kW", scene: "工厂", func: "减少电费", power: "400",
+                capacity: "", install: "2025", youtube: "https://youtu.be/FeOV_OnkfAs",
+                facebook: "https://www.facebook.com/reel/860792643272956" },
+            { country: "蒙古", city: "", title: "250kW 储能系统", scene: "塑料工厂", func: "自发自用", power: "250", capacity: "",
+                install: "2025-8", youtube: "https://youtu.be/ShoN66aN1Xc",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/781257220990641" },
+            { country: "蒙古", city: "", title: "20kW Hybrid 系统", scene: "", func: "", power: "20", capacity: "",
+                install: "", youtube: "https://youtu.be/FgEfLN9oBl0",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/753372450676457" },
+            { country: "伊拉克", city: "", title: "1.1MW 太阳能电站", scene: "钢构工厂", func: "并网", power: "1100",
+                capacity: "", install: "2019", youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "伊拉克", city: "", title: "11kW+28.66kWh Off-grid", scene: "", func: "", power: "11",
+                capacity: "28.66", install: "", youtube: "https://youtu.be/nokEeDGnrd4",
+                facebook: "https://www.facebook.com/reel/871525855257320" },
+            { country: "乌兹别克斯坦", city: "", title: "8MWH 液冷充电桩储能", scene: "充电站", func: "充电桩", power: "",
+                capacity: "8000", install: "2026", youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "俄罗斯", city: "", title: "20kW+30kWh Hybrid", scene: "", func: "", power: "20", capacity: "30",
+                install: "", youtube: "https://youtu.be/IUeey_vJR1Y",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/651953757922290" },
+            { country: "罗马尼亚", city: "", title: "375KW-783kWh ESS", scene: "", func: "", power: "375", capacity: "783",
+                install: "", youtube: "https://youtube.com/shorts/CJTFSrrKJKg",
+                facebook: "https://www.facebook.com/reel/2159174944594898" },
+            { country: "罗马尼亚", city: "", title: "PV-BESS 项目", scene: "光伏电站", func: "削峰填谷", power: "", capacity: "",
+                install: "", youtube: "https://youtu.be/pE3fTVUmnvI",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/2238285566535306" },
+            { country: "捷克", city: "", title: "off grid solar", scene: "", func: "", power: "", capacity: "", install: "",
+                youtube: "https://youtu.be/sf8DYUSve_c",
+                facebook: "https://www.facebook.com/reel/964534505680429" },
+            { country: "捷克", city: "", title: "hybrid solar", scene: "", func: "", power: "", capacity: "", install: "",
+                youtube: "https://youtu.be/XCdoEy5Y4BQ",
+                facebook: "https://www.facebook.com/reel/1633101064110199" },
+            { country: "奥地利", city: "", title: "500KWH 储能系统", scene: "", func: "", power: "", capacity: "500",
+                install: "", youtube: "https://youtu.be/6jgJK-6R1Tk",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1351379415957226" },
+            { country: "奥地利", city: "", title: "Liquid Cooling Project", scene: "", func: "", power: "", capacity: "",
+                install: "", youtube: "https://youtu.be/4-tKoOHP3_Y",
+                facebook: "https://www.facebook.com/reel/1406077178049832" },
+            { country: "格鲁吉亚", city: "Tbilisi", title: "22MW On Grid", scene: "农场", func: "削峰填谷", power: "22000",
+                capacity: "", install: "2022", youtube: "https://youtu.be/yOLJvZGI1Ck",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1099590542191315" },
+            { country: "保加利亚", city: "Stara Zagora", title: "400KW-783kWh 液冷", scene: "包装材料工厂",
+                func: "自发自用", power: "400", capacity: "783", install: "2025-10",
+                youtube: "https://youtu.be/Ex5rv_EVepU",
+                facebook: "https://www.facebook.com/reel/1368646007954960" },
+            { country: "保加利亚", city: "", title: "1MW PCS+2.2MWh BESS", scene: "", func: "", power: "1000",
+                capacity: "2200", install: "", youtube: "https://youtu.be/k8KZ5LBWwOE",
+                facebook: "https://www.facebook.com/reel/1513997170097111" },
+            { country: "保加利亚", city: "", title: "1MW+1MWh on grid", scene: "", func: "", power: "1000",
+                capacity: "1000", install: "", youtube: "https://youtu.be/FYtWbt-Q4Aw",
+                facebook: "https://www.facebook.com/reel/1494350356044610" },
+            { country: "保加利亚", city: "", title: "BMPS 250kW+514kWh", scene: "", func: "", power: "250",
+                capacity: "514", install: "", youtube: "未公布", facebook: "暂未公开" },
+            { country: "保加利亚", city: "", title: "BMPS 250kW+514kWh 反馈", scene: "", func: "", power: "250",
+                capacity: "514", install: "", youtube: "未公布", facebook: "暂未公开" },
+            { country: "保加利亚", city: "大特尔诺沃", title: "200kW+500KWh 项目", scene: "", func: "", power: "200",
+                capacity: "500", install: "", youtube: "https://youtu.be/DMnGQtuepJo",
+                facebook: "https://www.facebook.com/reel/2141619953432804" },
+            { country: "保加利亚", city: "索佐波尔", title: "度假酒店液冷柜 (4*261kWh)", scene: "度假酒店",
+                func: "自发自用", power: "", capacity: "1044", install: "", youtube: "https://youtu.be/5nD2ZlaIBV8",
+                facebook: "https://www.facebook.com/reel/1051329710614118" },
+            { country: "保加利亚", city: "", title: "500kW+780kWh 储能", scene: "", func: "", power: "500",
+                capacity: "780", install: "", youtube: "https://youtu.be/wIz1EC5hTMk",
+                facebook: "https://www.facebook.com/reel/1535120031203657" },
+            { country: "保加利亚", city: "", title: "1MWPCS+2MWH 光伏", scene: "农场", func: "削峰填谷", power: "1000",
+                capacity: "2000", install: "2026-4", youtube: "https://youtu.be/zUBGZKDb4pY",
+                facebook: "https://www.facebook.com/reel/1354040723385532" },
+            { country: "匈牙利", city: "", title: "4MWh PV+LC BESS", scene: "光伏电站", func: "", power: "",
+                capacity: "4000", install: "2025", youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "摩尔多瓦", city: "", title: "1.5MW On grid", scene: "", func: "", power: "1500", capacity: "",
+                install: "", youtube: "https://youtu.be/xJWViyrTVlY",
+                facebook: "https://www.facebook.com/reel/1275533511076438" },
+            { country: "摩尔多瓦", city: "", title: "1.1MW AC-Coupled", scene: "", func: "", power: "1100", capacity: "",
+                install: "", youtube: "https://youtu.be/cvIHTXNTtsE",
+                facebook: "https://www.facebook.com/reel/975715701615614" },
+            { country: "摩尔多瓦", city: "Chișinău", title: "2*50Kw/100kwh ESS", scene: "洗车店", func: "自发自用",
+                power: "100", capacity: "200", install: "2025-6", youtube: "https://youtu.be/g3YWbQniqlE",
+                facebook: "https://www.facebook.com/reel/986255977178045" },
+            { country: "摩尔多瓦", city: "", title: "990kW PV+261kWh 液冷", scene: "", func: "", power: "990",
+                capacity: "261", install: "", youtube: "https://youtu.be/9yq_ftKZcP4",
+                facebook: "https://www.facebook.com/reel/994743303059462" },
+            { country: "波黑", city: "", title: "2.5MW Grid-tied PV", scene: "", func: "", power: "2500", capacity: "",
+                install: "", youtube: "https://youtu.be/Z7InJdahdVg",
+                facebook: "https://www.facebook.com/reel/1438487908291169" },
+            { country: "科索沃", city: "", title: "15MW Rooftop Solar", scene: "", func: "", power: "15000",
+                capacity: "", install: "", youtube: "https://youtu.be/MxPzc2eT-qE",
+                facebook: "https://www.facebook.com/reel/2015541675974111" },
+            { country: "科索沃", city: "Prizren", title: "2MWH 砖厂储能", scene: "砖厂", func: "削峰填谷", power: "",
+                capacity: "2000", install: "2026-1", youtube: "https://youtu.be/cteoxnkzPIo",
+                facebook: "https://www.facebook.com/reel/974812011660043" },
+            { country: "荷兰", city: "", title: "150KW+400KWH 医院", scene: "眼科医院", func: "自发自用", power: "150",
+                capacity: "400", install: "2025", youtube: "https://youtu.be/ndcMqqL6QlI",
+                facebook: "https://www.facebook.com/reel/1496369105219835" },
+            { country: "荷兰", city: "", title: "Containerized ESS", scene: "工厂", func: "自发自用", power: "150",
+                capacity: "400", install: "2026", youtube: "https://youtu.be/9AUSSzePRT4",
+                facebook: "https://www.facebook.com/reel/1316315027269740" },
+            { country: "克罗地亚", city: "", title: "Solar Charging Station", scene: "充电站", func: "充电桩",
+                power: "", capacity: "", install: "", youtube: "https://youtu.be/a08rJuLTg_Q",
+                facebook: "https://www.facebook.com/reel/2266528270546996" },
+            { country: "爱沙尼亚", city: "", title: "2*250kW Hybrid + 1.1MWh", scene: "", func: "", power: "500",
+                capacity: "1100", install: "", youtube: "https://youtu.be/Sjim5dxmX2U",
+                facebook: "https://www.facebook.com/reel/1949783809073622" },
+            { country: "摩洛哥", city: "卡萨布兰卡", title: "1MW On Grid 电站", scene: "", func: "", power: "1000",
+                capacity: "", install: "", youtube: "https://youtu.be/BGKG2BCQPfY",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1389770518932707/" },
+            { country: "南非", city: "Western Cape", title: "30KW+60KWH ESS", scene: "Protea Farm",
+                func: "电力自由", power: "30", capacity: "60", install: "2023",
+                youtube: "https://youtu.be/Y1eYQzpNEZM",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/419619947266973" },
+            { country: "南非", city: "Western Cape", title: "20ft 集装箱储能", scene: "", func: "", power: "",
+                capacity: "", install: "2023", youtube: "https://youtu.be/NfWCEh0muqs",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/247633875090524" },
+            { country: "南非", city: "Johannesburg", title: "500kW+800kWh TV工厂", scene: "", func: "", power: "500",
+                capacity: "800", install: "", youtube: "https://youtu.be/Z9EMVcY_k7I",
+                facebook: "https://www.facebook.com/reel/957903106883971" },
+            { country: "马达加斯加", city: "塔那那利佛", title: "300kw/400kwh ESS", scene: "医疗设备厂",
+                func: "离网", power: "300", capacity: "400", install: "2024",
+                youtube: "https://youtu.be/TYylz3qJYwM",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/2671460879911795" },
+            { country: "马达加斯加", city: "", title: "500kW/1.3MWh ESS", scene: "", func: "", power: "500",
+                capacity: "1300", install: "", youtube: "https://youtu.be/Hm_etR40gog",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/3115417788610901/" },
+            { country: "刚果", city: "Kolwezi", title: "100KW-286.72kWh ESS", scene: "学校", func: "离网/备用",
+                power: "100", capacity: "286.72", install: "2025-4",
+                youtube: "https://youtube.com/shorts/dTRdj3GTsjM",
+                facebook: "https://www.facebook.com/reel/546164021645099" },
+            { country: "塞内加尔", city: "", title: "3.5kw Solar Pump", scene: "", func: "", power: "3.5", capacity: "",
+                install: "", youtube: "https://youtu.be/l5lfQ2vsoZY",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/564849773373720" },
+            { country: "塞拉利昂", city: "Freetown", title: "50kW+100kWh", scene: "办公室", func: "电力自由", power: "50",
+                capacity: "100", install: "2025", youtube: "https://youtu.be/W1TWHnfaqFA",
+                facebook: "https://www.facebook.com/reel/1506591057441789" },
+            { country: "塞拉利昂", city: "Freetown", title: "50KW+100KWH 别墅", scene: "别墅", func: "电力自由",
+                power: "50", capacity: "100", install: "2024", youtube: "https://youtu.be/TY6NxobzeFA",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/665088173271673" },
+            { country: "塞拉利昂", city: "Freetown", title: "100kw+86.4kWh", scene: "办公室", func: "电力自由",
+                power: "100", capacity: "86.4", install: "2024", youtube: "https://youtu.be/ON7oCsDPQsA",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1439856283872846" },
+            { country: "塞拉利昂", city: "Freetown", title: "50kW&54kWh", scene: "石油办公室", func: "电力自由",
+                power: "50", capacity: "54", install: "2024", youtube: "https://youtu.be/RoheHDdvFno",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1796474320951527" },
+            { country: "塞拉利昂", city: "Freetown", title: "100kW+200kWh 瓶装水厂", scene: "瓶装水工厂",
+                func: "电力自由", power: "100", capacity: "200", install: "2024",
+                youtube: "https://youtu.be/zkggYJA53Ec",
+                facebook: "https://www.facebook.com/reel/1943511869717326" },
+            { country: "加纳", city: "Accra", title: "450kW-900kWh", scene: "教堂", func: "备用电源", power: "450",
+                capacity: "900", install: "2025-9", youtube: "https://youtu.be/v_2za3spb2s",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/591271343920270" },
+            { country: "加纳", city: "", title: "30KW-60kWh", scene: "", func: "", power: "30", capacity: "60",
+                install: "", youtube: "https://youtu.be/wDbuodR9a0U",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1262419565611916" },
+            { country: "加纳", city: "", title: "300kw+600kwh", scene: "", func: "", power: "300", capacity: "600",
+                install: "", youtube: "https://youtu.be/TwsF_Wasqp4",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/386345330548048/" },
+            { country: "马里", city: "", title: "12kW&32kWh 户用储能", scene: "", func: "", power: "12",
+                capacity: "32", install: "", youtube: "https://youtu.be/sf3SjB-Rds0",
+                facebook: "https://www.facebook.com/reel/745677208268417" },
+            { country: "尼日利亚", city: "", title: "50kW Solar Power", scene: "", func: "", power: "50", capacity: "",
+                install: "", youtube: "https://youtu.be/Zeqe3PvuQZg",
+                facebook: "https://www.facebook.com/reel/25718635897772476" },
+            { country: "毛里塔尼亚", city: "", title: "806kWp+125kW6 On-Grid", scene: "", func: "", power: "806",
+                capacity: "", install: "", youtube: "https://youtu.be/r1jfzonEyVQ",
+                facebook: "https://www.facebook.com/reel/1391005882391181" },
+            { country: "赞比亚", city: "", title: "2Mw+2.4MwH 系统", scene: "", func: "", power: "2000",
+                capacity: "2400", install: "", youtube: "https://youtu.be/rWH9cpvxc4w",
+                facebook: "https://www.facebook.com/reel/875919898615315" },
+            { country: "索马里", city: "哈尔格萨", title: "2.5MW+3MWH 光伏电站", scene: "国家电网",
+                func: "并网卖电", power: "2500", capacity: "3000", install: "2025-12",
+                youtube: "暂未公开", facebook: "暂未公开" },
+            { country: "索马里兰", city: "Gar'Adag", title: "300kw+720kw 储能", scene: "偏远村庄",
+                func: "电力自由", power: "300", capacity: "720", install: "2025-11",
+                youtube: "https://youtu.be/bBWOrFkPJbo",
+                facebook: "https://www.facebook.com/reel/3269388456574652" },
+            { country: "索马里兰", city: "Gar'Adag", title: "300kw+720kw (短)", scene: "偏远村庄",
+                func: "电力自由", power: "300", capacity: "720", install: "2025-11",
+                youtube: "https://youtube.com/shorts/VjL8pbmpoQ0",
+                facebook: "https://www.facebook.com/reel/1607106950335809" },
+            { country: "秘鲁", city: "", title: "1MW 2.2MWH (一期)", scene: "矿场", func: "24h运行", power: "1000",
+                capacity: "2200", install: "2025-9", youtube: "https://youtu.be/OB-SFK8-P7k",
+                facebook: "https://www.facebook.com/reel/1918617835738354" },
+            { country: "秘鲁", city: "", title: "2MW/4.2MWh (扩容)", scene: "矿场", func: "24h运行", power: "2000",
+                capacity: "4200", install: "2026-3", youtube: "https://youtu.be/QnF52_JgeXY",
+                facebook: "https://www.facebook.com/reel/1010649924855993" },
+            { country: "秘鲁", city: "", title: "Off-Grid ESS Expansion", scene: "矿场", func: "24h运行", power: "",
+                capacity: "", install: "2026-4", youtube: "https://youtu.be/eUOlRpSqmoc",
+                facebook: "https://www.facebook.com/reel/1495273528709113" },
+            { country: "秘鲁", city: "", title: "Off-Grid 客户介绍", scene: "矿场", func: "24h运行", power: "",
+                capacity: "", install: "2026-5", youtube: "https://youtu.be/QnF52_JgeXY",
+                facebook: "https://www.facebook.com/reel/1010649924855993" },
+            { country: "伯利兹", city: "", title: "250KW+580KWh 储能", scene: "", func: "", power: "250",
+                capacity: "580", install: "", youtube: "https://youtu.be/UNtjwr5gGHE",
+                facebook: "https://www.facebook.com/reel/1196258036010720" },
+            { country: "伯利兹", city: "", title: "600KW Solar", scene: "", func: "", power: "600", capacity: "",
+                install: "", youtube: "https://youtu.be/W53QMBbpBsA",
+                facebook: "https://www.facebook.com/reel/1622370455600244" },
+            { country: "古巴", city: "", title: "60kW PV+150kWh BESS", scene: "", func: "", power: "60",
+                capacity: "150", install: "", youtube: "https://youtu.be/o4lWiNE1ZWo",
+                facebook: "https://www.facebook.com/reel/883559750957096" },
+            { country: "古巴", city: "", title: "60kW+140kWh Off-grid", scene: "", func: "", power: "60",
+                capacity: "140", install: "", youtube: "https://youtu.be/KjWhpgfe3VY",
+                facebook: "https://www.facebook.com/reel/1424209609093741" },
+            { country: "牙买加", city: "", title: "10kW+30kWh 户用", scene: "", func: "", power: "10",
+                capacity: "30", install: "", youtube: "https://youtu.be/u7WDzUdvTl0",
+                facebook: "https://www.facebook.com/reel/1911947843048846" },
+            { country: "洪都拉斯", city: "", title: "250kW+500kWh Hybrid (EN)", scene: "", func: "", power: "250",
+                capacity: "500", install: "", youtube: "https://youtu.be/BxK7rh-Iz5I",
+                facebook: "https://www.facebook.com/reel/1582456679737146" },
+            { country: "洪都拉斯", city: "", title: "250kW+500kWh Hybrid (ES)", scene: "", func: "", power: "250",
+                capacity: "500", install: "", youtube: "https://youtu.be/qwEoubx0zQY",
+                facebook: "https://www.facebook.com/reel/1480343803697445" },
+            { country: "多米尼加", city: "", title: "24kW+86kWh 储能", scene: "", func: "", power: "24",
+                capacity: "86", install: "", youtube: "https://youtu.be/WP5Nt2YoTO4",
+                facebook: "https://www.facebook.com/reel/1961109418165289" },
+            { country: "厄瓜多尔", city: "", title: "150kW+286kWh 储能", scene: "", func: "", power: "150",
+                capacity: "286", install: "", youtube: "https://youtu.be/Fo2X-NWviuQ",
+                facebook: "https://www.facebook.com/reel/1427880728800800" },
+            { country: "波多黎各", city: "", title: "150kW&580kWh ESS", scene: "", func: "", power: "150",
+                capacity: "580", install: "", youtube: "https://youtu.be/JCdbA2xibdI",
+                facebook: "https://www.facebook.com/reel/1653172832703540" },
+            { country: "波利尼西亚", city: "", title: "30kw 储能系统", scene: "", func: "", power: "30", capacity: "",
+                install: "", youtube: "https://youtu.be/drZhzKugP0s",
+                facebook: "https://www.facebook.com/pv.bluesun/videos/1565305484384682" }
+        ];
+
+        // ================================================================
+        // 3. 翻译和语言
+        // ================================================================
+        var transMap = {
+            "缅甸": { zh: "缅甸", en: "Myanmar", fr: "Myanmar", de: "Myanmar", es: "Myanmar", ru: "Мьянма" },
+            "泰国": { zh: "泰国", en: "Thailand", fr: "Thaïlande", de: "Thailand", es: "Tailandia", ru: "Таиланд" },
+            "马尔代夫": { zh: "马尔代夫", en: "Maldives", fr: "Maldives", de: "Malediven", es: "Maldivas",
+            ru: "Мальдивы" },
+            "柬埔寨": { zh: "柬埔寨", en: "Cambodia", fr: "Cambodge", de: "Kambodscha", es: "Camboya",
+            ru: "Камбоджа" },
+            "菲律宾": { zh: "菲律宾", en: "Philippines", fr: "Philippines", de: "Philippinen", es: "Filipinas",
+                ru: "Филиппины" },
+            "马来西亚": { zh: "马来西亚", en: "Malaysia", fr: "Malaisie", de: "Malaysia", es: "Malasia",
+                ru: "Малайзия" },
+            "越南": { zh: "越南", en: "Vietnam", fr: "Vietnam", de: "Vietnam", es: "Vietnam", ru: "Вьетнам" },
+            "蒙古": { zh: "蒙古", en: "Mongolia", fr: "Mongolie", de: "Mongolei", es: "Mongolia", ru: "Монголия" },
+            "伊拉克": { zh: "伊拉克", en: "Iraq", fr: "Irak", de: "Irak", es: "Irak", ru: "Ирак" },
+            "乌兹别克斯坦": { zh: "乌兹别克斯坦", en: "Uzbekistan", fr: "Ouzbékistan", de: "Usbekistan",
+                es: "Uzbekistán", ru: "Узбекистан" },
+            "俄罗斯": { zh: "俄罗斯", en: "Russia", fr: "Russie", de: "Russland", es: "Rusia", ru: "Россия" },
+            "罗马尼亚": { zh: "罗马尼亚", en: "Romania", fr: "Roumanie", de: "Rumänien", es: "Rumania",
+                ru: "Румыния" },
+            "捷克": { zh: "捷克", en: "Czech Republic", fr: "République tchèque", de: "Tschechien",
+                es: "República Checa", ru: "Чехия" },
+            "奥地利": { zh: "奥地利", en: "Austria", fr: "Autriche", de: "Österreich", es: "Austria",
+            ru: "Австрия" },
+            "格鲁吉亚": { zh: "格鲁吉亚", en: "Georgia", fr: "Géorgie", de: "Georgien", es: "Georgia",
+            ru: "Грузия" },
+            "保加利亚": { zh: "保加利亚", en: "Bulgaria", fr: "Bulgarie", de: "Bulgarien", es: "Bulgaria",
+                ru: "Болгария" },
+            "匈牙利": { zh: "匈牙利", en: "Hungary", fr: "Hongrie", de: "Ungarn", es: "Hungría", ru: "Венгрия" },
+            "摩尔多瓦": { zh: "摩尔多瓦", en: "Moldova", fr: "Moldavie", de: "Moldawien", es: "Moldavia",
+                ru: "Молдова" },
+            "波黑": { zh: "波黑", en: "Bosnia and Herzegovina", fr: "Bosnie-Herzégovine",
+                de: "Bosnien und Herzegowina", es: "Bosnia y Herzegovina", ru: "Босния и Герцеговина" },
+            "科索沃": { zh: "科索沃", en: "Kosovo", fr: "Kosovo", de: "Kosovo", es: "Kosovo", ru: "Косово" },
+            "荷兰": { zh: "荷兰", en: "Netherlands", fr: "Pays-Bas", de: "Niederlande", es: "Países Bajos",
+                ru: "Нидерланды" },
+            "克罗地亚": { zh: "克罗地亚", en: "Croatia", fr: "Croatie", de: "Kroatien", es: "Croacia",
+                ru: "Хорватия" },
+            "爱沙尼亚": { zh: "爱沙尼亚", en: "Estonia", fr: "Estonie", de: "Estland", es: "Estonia",
+                ru: "Эстония" },
+            "摩洛哥": { zh: "摩洛哥", en: "Morocco", fr: "Maroc", de: "Marokko", es: "Marruecos",
+            ru: "Марокко" },
+            "南非": { zh: "南非", en: "South Africa", fr: "Afrique du Sud", de: "Südafrika", es: "Sudáfrica",
+                ru: "Южная Африка" },
+            "马达加斯加": { zh: "马达加斯加", en: "Madagascar", fr: "Madagascar", de: "Madagaskar",
+                es: "Madagascar", ru: "Мадагаскар" },
+            "刚果": { zh: "刚果", en: "Congo", fr: "Congo", de: "Kongo", es: "Congo", ru: "Конго" },
+            "塞内加尔": { zh: "塞内加尔", en: "Senegal", fr: "Sénégal", de: "Senegal", es: "Senegal",
+                ru: "Сенегал" },
+            "塞拉利昂": { zh: "塞拉利昂", en: "Sierra Leone", fr: "Sierra Leone", de: "Sierra Leone",
+                es: "Sierra Leona", ru: "Сьерра-Леоне" },
+            "加纳": { zh: "加纳", en: "Ghana", fr: "Ghana", de: "Ghana", es: "Ghana", ru: "Гана" },
+            "马里": { zh: "马里", en: "Mali", fr: "Mali", de: "Mali", es: "Malí", ru: "Мали" },
+            "尼日利亚": { zh: "尼日利亚", en: "Nigeria", fr: "Nigeria", de: "Nigeria", es: "Nigeria",
+                ru: "Нигерия" },
+            "毛里塔尼亚": { zh: "毛里塔尼亚", en: "Mauritania", fr: "Mauritanie", de: "Mauretanien",
+                es: "Mauritania", ru: "Мавритания" },
+            "赞比亚": { zh: "赞比亚", en: "Zambia", fr: "Zambie", de: "Sambia", es: "Zambia", ru: "Замбия" },
+            "索马里": { zh: "索马里", en: "Somalia", fr: "Somalie", de: "Somalia", es: "Somalia",
+            ru: "Сомали" },
+            "索马里兰": { zh: "索马里兰", en: "Somaliland", fr: "Somaliland", de: "Somaliland",
+                es: "Somalilandia", ru: "Сомалиленд" },
+            "秘鲁": { zh: "秘鲁", en: "Peru", fr: "Pérou", de: "Peru", es: "Perú", ru: "Перу" },
+            "伯利兹": { zh: "伯利兹", en: "Belize", fr: "Belize", de: "Belize", es: "Belice", ru: "Белиз" },
+            "古巴": { zh: "古巴", en: "Cuba", fr: "Cuba", de: "Kuba", es: "Cuba", ru: "Куба" },
+            "牙买加": { zh: "牙买加", en: "Jamaica", fr: "Jamaïque", de: "Jamaika", es: "Jamaica",
+            ru: "Ямайка" },
+            "洪都拉斯": { zh: "洪都拉斯", en: "Honduras", fr: "Honduras", de: "Honduras", es: "Honduras",
+                ru: "Гондурас" },
+            "多米尼加": { zh: "多米尼加", en: "Dominican Republic", fr: "République dominicaine",
+                de: "Dominikanische Republik", es: "República Dominicana",
+                ru: "Доминиканская Республика" },
+            "厄瓜多尔": { zh: "厄瓜多尔", en: "Ecuador", fr: "Équateur", de: "Ecuador", es: "Ecuador",
+                ru: "Эквадор" },
+            "波多黎各": { zh: "波多黎各", en: "Puerto Rico", fr: "Porto Rico", de: "Puerto Rico",
+                es: "Puerto Rico", ru: "Пуэрто-Рико" },
+            "波利尼西亚": { zh: "波利尼西亚", en: "Polynesia", fr: "Polynésie", de: "Polynesien",
+                es: "Polinesia", ru: "Полинезия" },
+            "仰光": { zh: "仰光", en: "Yangon", fr: "Yangon", de: "Yangon", es: "Yangon", ru: "Янгон" },
+            "曼谷": { zh: "曼谷", en: "Bangkok", fr: "Bangkok", de: "Bangkok", es: "Bangkok", ru: "Бангкок" },
+            "甲米府": { zh: "甲米府", en: "Krabi", fr: "Krabi", de: "Krabi", es: "Krabi", ru: "Краби" },
+            "Cebu": { zh: "宿务", en: "Cebu", fr: "Cebu", de: "Cebu", es: "Cebú", ru: "Себу" },
+            "河内": { zh: "河内", en: "Hanoi", fr: "Hanoï", de: "Hanoi", es: "Hanói", ru: "Ханой" },
+            "Tbilisi": { zh: "第比利斯", en: "Tbilisi", fr: "Tbilissi", de: "Tiflis", es: "Tiflis",
+            ru: "Тбилиси" },
+            "Stara Zagora": { zh: "旧扎戈拉", en: "Stara Zagora", fr: "Stara Zagora", de: "Stara Sagora",
+                es: "Stara Zagora", ru: "Стара-Загора" },
+            "大特尔诺沃": { zh: "大特尔诺沃", en: "Veliko Tarnovo", fr: "Veliko Tarnovo", de: "Weliko Tarnowo",
+                es: "Veliko Tarnovo", ru: "Велико-Тырново" },
+            "索佐波尔": { zh: "索佐波尔", en: "Sozopol", fr: "Sozopol", de: "Sosopol", es: "Sozopol",
+                ru: "Созополь" },
+            "Chișinău": { zh: "基希讷乌", en: "Chișinău", fr: "Chișinău", de: "Chișinău", es: "Chișinău",
+                ru: "Кишинёв" },
+            "Prizren": { zh: "普里兹伦", en: "Prizren", fr: "Prizren", de: "Prizren", es: "Prizren",
+                ru: "Призрен" },
+            "卡萨布兰卡": { zh: "卡萨布兰卡", en: "Casablanca", fr: "Casablanca", de: "Casablanca",
+                es: "Casablanca", ru: "Касабланка" },
+            "Western Cape": { zh: "西开普", en: "Western Cape", fr: "Cap-Occidental", de: "Westkap",
+                es: "Cabo Occidental", ru: "Западный Кейп" },
+            "Johannesburg": { zh: "约翰内斯堡", en: "Johannesburg", fr: "Johannesburg", de: "Johannesburg",
+                es: "Johannesburgo", ru: "Йоханнесбург" },
+            "塔那那利佛": { zh: "塔那那利佛", en: "Antananarivo", fr: "Antananarivo", de: "Antananarivo",
+                es: "Antananarivo", ru: "Антананариву" },
+            "Kolwezi": { zh: "科卢韦齐", en: "Kolwezi", fr: "Kolwezi", de: "Kolwezi", es: "Kolwezi",
+                ru: "Колвези" },
+            "Freetown": { zh: "弗里敦", en: "Freetown", fr: "Freetown", de: "Freetown", es: "Freetown",
+                ru: "Фритаун" },
+            "Accra": { zh: "阿克拉", en: "Accra", fr: "Accra", de: "Accra", es: "Accra", ru: "Аккра" },
+            "哈尔格萨": { zh: "哈尔格萨", en: "Hargeisa", fr: "Hargeisa", de: "Hargeisa", es: "Hargeisa",
+                ru: "Харгейса" },
+            "Gar'Adag": { zh: "加达格", en: "Gar'Adag", fr: "Gar'Adag", de: "Gar'Adag", es: "Gar'Adag",
+                ru: "Гар'Адаг" },
+            "螺丝厂": { zh: "螺丝厂", en: "Screw Factory", fr: "Usine de vis", de: "Schraubenfabrik",
+                es: "Fábrica de tornillos", ru: "Завод винтов" },
+            "办公楼": { zh: "办公楼", en: "Office Building", fr: "Immeuble de bureaux", de: "Bürogebäude",
+                es: "Edificio de oficinas", ru: "Офисное здание" },
+            "快递站": { zh: "快递站", en: "Courier Station", fr: "Station de courrier", de: "Kurierstation",
+                es: "Estación de mensajería", ru: "Курьерская станция" },
+            "国际学校": { zh: "国际学校", en: "International School", fr: "École internationale",
+                de: "Internationale Schule", es: "Escuela internacional",
+                ru: "Международная школа" },
+            "度假村": { zh: "度假村", en: "Resort", fr: "Station touristique", de: "Resort",
+                es: "Complejo turístico", ru: "Курорт" },
+            "医院": { zh: "医院", en: "Hospital", fr: "Hôpital", de: "Krankenhaus", es: "Hospital",
+                ru: "Больница" },
+            "家居装饰工厂": { zh: "家居装饰工厂", en: "Home Decor Factory", fr: "Usine de décoration",
+                de: "Dekorationsfabrik", es: "Fábrica de decoración", ru: "Фабрика декора" },
+            "别墅": { zh: "别墅", en: "Villa", fr: "Villa", de: "Villa", es: "Villa", ru: "Вилла" },
+            "皮皮岛": { zh: "皮皮岛", en: "Phi Phi Island", fr: "Île Phi Phi", de: "Phi Phi Insel",
+                es: "Isla Phi Phi", ru: "Остров Пхи-Пхи" },
+            "塑料工厂": { zh: "塑料工厂", en: "Plastic Factory", fr: "Usine de plastique",
+                de: "Kunststofffabrik", es: "Fábrica de plásticos", ru: "Пластиковый завод" },
+            "酒店": { zh: "酒店", en: "Hotel", fr: "Hôtel", de: "Hotel", es: "Hotel", ru: "Отель" },
+            "工厂": { zh: "工厂", en: "Factory", fr: "Usine", de: "Fabrik", es: "Fábrica", ru: "Завод" },
+            "充电站": { zh: "充电站", en: "Charging Station", fr: "Station de recharge", de: "Ladestation",
+                es: "Estación de carga", ru: "Зарядная станция" },
+            "钢构工厂": { zh: "钢构工厂", en: "Steel Structure Factory", fr: "Usine de structures métalliques",
+                de: "Stahlbaufabrik", es: "Fábrica de estructuras de acero",
+                ru: "Завод металлоконструкций" },
+            "光伏电站": { zh: "光伏电站", en: "PV Power Station", fr: "Centrale photovoltaïque",
+                de: "PV-Kraftwerk", es: "Central fotovoltaica", ru: "Фотоэлектрическая станция" },
+            "农场": { zh: "农场", en: "Farm", fr: "Ferme", de: "Bauernhof", es: "Granja", ru: "Ферма" },
+            "包装材料工厂": { zh: "包装材料工厂", en: "Packaging Material Factory", fr: "Usine d'emballage",
+                de: "Verpackungsfabrik", es: "Fábrica de envases", ru: "Фабрика упаковки" },
+            "度假酒店": { zh: "度假酒店", en: "Resort Hotel", fr: "Hôtel de station", de: "Resorthotel",
+                es: "Hotel resort", ru: "Курортный отель" },
+            "洗车店": { zh: "洗车店", en: "Car Wash", fr: "Lavage auto", de: "Autowäsche",
+                es: "Lavado de autos", ru: "Автомойка" },
+            "砖厂": { zh: "砖厂", en: "Brick Factory", fr: "Briqueterie", de: "Ziegelfabrik",
+                es: "Fábrica de ladrillos", ru: "Кирпичный завод" },
+            "眼科医院": { zh: "眼科医院", en: "Eye Hospital", fr: "Hôpital ophtalmologique",
+                de: "Augenklinik", es: "Hospital oftalmológico",
+                ru: "Офтальмологическая больница" },
+            "Protea Farm": { zh: "Protea农场", en: "Protea Farm", fr: "Ferme Protea", de: "Protea Farm",
+                es: "Granja Protea", ru: "Ферма Protea" },
+            "医疗设备厂": { zh: "医疗设备厂", en: "Medical Equipment Factory",
+                fr: "Usine d'équipement médical", de: "Medizintechnikfabrik",
+                es: "Fábrica de equipos médicos", ru: "Завод медоборудования" },
+            "学校": { zh: "学校", en: "School", fr: "École", de: "Schule", es: "Escuela", ru: "Школа" },
+            "办公室": { zh: "办公室", en: "Office", fr: "Bureau", de: "Büro", es: "Oficina", ru: "Офис" },
+            "石油办公室": { zh: "石油办公室", en: "Oil Office", fr: "Bureau pétrolier", de: "Ölbüro",
+                es: "Oficina petrolera", ru: "Нефтяной офис" },
+            "瓶装水工厂": { zh: "瓶装水工厂", en: "Bottled Water Factory", fr: "Usine d'eau en bouteille",
+                de: "Wasserabfüllanlage", es: "Fábrica de agua embotellada",
+                ru: "Завод бутилированной воды" },
+            "教堂": { zh: "教堂", en: "Church", fr: "Église", de: "Kirche", es: "Iglesia", ru: "Церковь" },
+            "国家电网": { zh: "国家电网", en: "National Grid", fr: "Réseau national", de: "Stromnetz",
+                es: "Red nacional", ru: "Национальная сеть" },
+            "偏远村庄": { zh: "偏远村庄", en: "Remote Village", fr: "Village isolé", de: "Abgelegenes Dorf",
+                es: "Aldea remota", ru: "Отдаленная деревня" },
+            "矿场": { zh: "矿场", en: "Mine", fr: "Mine", de: "Mine", es: "Mina", ru: "Шахта" },
+            "电力自由": { zh: "电力自由", en: "Energy Freedom", fr: "Liberté énergétique",
+                de: "Energiefreiheit", es: "Libertad energética", ru: "Энергосвобода" },
+            "备用电源": { zh: "备用电源", en: "Backup Power", fr: "Alimentation de secours",
+                de: "Reservestrom", es: "Alimentación de respaldo", ru: "Резервное питание" },
+            "纯并网": { zh: "纯并网", en: "Grid-tied", fr: "Raccordé au réseau", de: "Netzgekoppelt",
+                es: "Conectado a red", ru: "Сетевая" },
+            "充电桩": { zh: "充电桩", en: "Charging Pile", fr: "Borne de recharge", de: "Ladesäule",
+                es: "Punto de carga", ru: "Зарядная станция" },
+            "并网自发自用": { zh: "并网自发自用", en: "Grid-tied Self-consumption",
+                fr: "Autoconsommation raccordée", de: "Netzgekoppelter Eigenverbrauch",
+                es: "Autoconsumo conectado", ru: "Сетевое самопотребление" },
+            "光伏储能/降电费": { zh: "光伏储能/降电费", en: "PV Storage / Cost Reduction",
+                fr: "Stockage PV / Réduction des coûts", de: "PV-Speicher / Kostensenkung",
+                es: "Almacenamiento PV / Reducción de costos", ru: "PV-накопитель / снижение затрат" },
+            "减少电费": { zh: "减少电费", en: "Cost Saving", fr: "Économie d'énergie",
+                de: "Kosteneinsparung", es: "Ahorro de costos", ru: "Экономия" },
+            "纯离网/备用": { zh: "纯离网/备用", en: "Off-grid / Backup", fr: "Hors réseau / Secours",
+                de: "Inselnetz / Reserve", es: "Fuera de red / Respaldo",
+                ru: "Автономный / Резерв" },
+            "自发自用": { zh: "自发自用", en: "Self-consumption", fr: "Autoconsommation",
+                de: "Eigenverbrauch", es: "Autoconsumo", ru: "Самопотребление" },
+            "并网": { zh: "并网", en: "Grid-tied", fr: "Raccordé au réseau", de: "Netzgekoppelt",
+                es: "Conectado a red", ru: "Сетевая" },
+            "削峰填谷": { zh: "削峰填谷", en: "Peak Shaving", fr: "Lissage des pointes",
+                de: "Lastspitzenkappung", es: "Recorte de picos", ru: "Сглаживание пиков" },
+            "离网": { zh: "离网", en: "Off-grid", fr: "Hors réseau", de: "Inselnetz", es: "Fuera de red",
+                ru: "Автономный" },
+            "离网/备用": { zh: "离网/备用", en: "Off-grid / Backup", fr: "Hors réseau / Secours",
+                de: "Inselnetz / Reserve", es: "Fuera de red / Respaldo",
+                ru: "Автономный / Резерв" },
+            "24h运行": { zh: "24h运行", en: "24h Operation", fr: "Fonctionnement 24h", de: "24h Betrieb",
+                es: "Operación 24h", ru: "Круглосуточная работа" },
+            "并网卖电": { zh: "并网卖电", en: "Grid Selling", fr: "Vente au réseau", de: "Netzeinspeisung",
+                es: "Venta a red", ru: "Продажа в сеть" }
+        };
+
+        function translate(val, lang) {
+            if (!val) return val;
+            if (transMap[val] && transMap[val][lang]) return transMap[val][lang];
+            return val;
+        }
+
+        function getProjectsForLang(lang) {
+            var result = [];
+            for (var i = 0; i < rawProjects.length; i++) {
+                var p = rawProjects[i];
+                result.push({
+                    country: translate(p.country, lang) || p.country,
+                    city: translate(p.city, lang) || p.city,
+                    title: p.title,
+                    scene: translate(p.scene, lang) || p.scene,
+                    func: translate(p.func, lang) || p.func,
+                    power: p.power,
+                    capacity: p.capacity,
+                    install: p.install,
+                    youtube: p.youtube,
+                    facebook: p.facebook,
+                    _rawCountry: p.country,
+                    _rawScene: p.scene,
+                    _rawFunc: p.func
+                });
+            }
+            return result;
+        }
+
+        // ================================================================
+        // 4. UI文字
+        // ================================================================
+        var uiTexts = {
+            zh: { guideTitle: "全球项目", guideCountries: "个国家", guideProjects: "个项目",
+                guideStat: "🔍 点击标记查看详情", filterTitle: "📊 筛选项目", resetBtnText: "重置",
+                labelContinent: "🌎 大洲", labelCountry: "🏙️ 国家", labelCity: "🏙️ 城市",
+                labelScene: "📂 应用场景", labelFunction: "⚡ 功能", labelPower: "🔋 功率 (kW)",
+                labelCapacity: "🧊 容量 (kWh)", labelInstallDate: "📅 安装时间", applyBtnText: "🔍 筛选",
+                clearBtnText: "清空", exportBtnText: "📥 导出Excel", hotTitle: "🔥 热门大项目",
+                noData: "暂无符合条件的热门项目", fieldCountry: "国家", fieldCity: "城市",
+                fieldProject: "项目名称", fieldScene: "应用场景", fieldFunc: "功能", fieldPower: "功率(kW)",
+                fieldCapacity: "容量(kWh)", fieldInstall: "安装时间", fieldYoutube: "YouTube链接",
+                fieldFacebook: "Facebook链接", projectUnit: "个项目", clickDetail: "点击查看详细列表",
+                clickLinks: "📌 点击链接在新窗口打开" },
+            en: { guideTitle: "Global Projects", guideCountries: "Countries", guideProjects: "Projects",
+                guideStat: "🔍 Click marker for details", filterTitle: "📊 Filter Projects",
+                resetBtnText: "Reset", labelContinent: "🌎 Continent", labelCountry: "🏙️ Country",
+                labelCity: "🏙️ City", labelScene: "📂 Application", labelFunction: "⚡ Function",
+                labelPower: "🔋 Power (kW)", labelCapacity: "🧊 Capacity (kWh)",
+                labelInstallDate: "📅 Install Date", applyBtnText: "🔍 Apply", clearBtnText: "Clear",
+                exportBtnText: "📥 Export Excel", hotTitle: "🔥 Top Projects",
+                noData: "No projects match the criteria", fieldCountry: "Country", fieldCity: "City",
+                fieldProject: "Project Name", fieldScene: "Application", fieldFunc: "Function",
+                fieldPower: "Power(kW)", fieldCapacity: "Capacity(kWh)", fieldInstall: "Install Date",
+                fieldYoutube: "YouTube Link", fieldFacebook: "Facebook Link", projectUnit: "projects",
+                clickDetail: "Click for details", clickLinks: "📌 Click links to open" },
+            fr: { guideTitle: "Projets mondiaux", guideCountries: "pays", guideProjects: "projets",
+                guideStat: "🔍 Cliquez sur le marqueur", filterTitle: "📊 Filtrer",
+                resetBtnText: "Réinitialiser", labelContinent: "🌎 Continent", labelCountry: "🏙️ Pays",
+                labelCity: "🏙️ Ville", labelScene: "📂 Application", labelFunction: "⚡ Fonction",
+                labelPower: "🔋 Puissance (kW)", labelCapacity: "🧊 Capacité (kWh)",
+                labelInstallDate: "📅 Date d'installation", applyBtnText: "🔍 Appliquer",
+                clearBtnText: "Effacer", exportBtnText: "📥 Exporter Excel",
+                hotTitle: "🔥 Projets populaires", noData: "Aucun projet", fieldCountry: "Pays",
+                fieldCity: "Ville", fieldProject: "Nom du projet", fieldScene: "Application",
+                fieldFunc: "Fonction", fieldPower: "Puissance(kW)", fieldCapacity: "Capacité(kWh)",
+                fieldInstall: "Date d'installation", fieldYoutube: "Lien YouTube",
+                fieldFacebook: "Lien Facebook", projectUnit: "projets",
+                clickDetail: "Cliquez pour détails", clickLinks: "📌 Cliquez sur les liens" },
+            de: { guideTitle: "Globale Projekte", guideCountries: "Länder", guideProjects: "Projekte",
+                guideStat: "🔍 Klicken Sie auf Marker", filterTitle: "📊 Filter",
+                resetBtnText: "Zurücksetzen", labelContinent: "🌎 Kontinent", labelCountry: "🏙️ Land",
+                labelCity: "🏙️ Stadt", labelScene: "📂 Anwendung", labelFunction: "⚡ Funktion",
+                labelPower: "🔋 Leistung (kW)", labelCapacity: "🧊 Kapazität (kWh)",
+                labelInstallDate: "📅 Installationsdatum", applyBtnText: "🔍 Anwenden",
+                clearBtnText: "Löschen", exportBtnText: "📥 Excel exportieren",
+                hotTitle: "🔥 Top-Projekte", noData: "Keine Projekte", fieldCountry: "Land",
+                fieldCity: "Stadt", fieldProject: "Projektname", fieldScene: "Anwendung",
+                fieldFunc: "Funktion", fieldPower: "Leistung(kW)", fieldCapacity: "Kapazität(kWh)",
+                fieldInstall: "Installationsdatum", fieldYoutube: "YouTube-Link",
+                fieldFacebook: "Facebook-Link", projectUnit: "Projekte",
+                clickDetail: "Klicken für Details", clickLinks: "📌 Klicken Sie auf Links" },
+            es: { guideTitle: "Proyectos globales", guideCountries: "países", guideProjects: "proyectos",
+                guideStat: "🔍 Haga clic en el marcador", filterTitle: "📊 Filtrar",
+                resetBtnText: "Restablecer", labelContinent: "🌎 Continente",
+                labelCountry: "🏙️ País", labelCity: "🏙️ Ciudad", labelScene: "📂 Aplicación",
+                labelFunction: "⚡ Función", labelPower: "🔋 Potencia (kW)",
+                labelCapacity: "🧊 Capacidad (kWh)", labelInstallDate: "📅 Fecha de instalación",
+                applyBtnText: "🔍 Aplicar", clearBtnText: "Limpiar", exportBtnText: "📥 Exportar Excel",
+                hotTitle: "🔥 Proyectos destacados", noData: "Sin proyectos", fieldCountry: "País",
+                fieldCity: "Ciudad", fieldProject: "Nombre del proyecto", fieldScene: "Aplicación",
+                fieldFunc: "Función", fieldPower: "Potencia(kW)", fieldCapacity: "Capacidad(kWh)",
+                fieldInstall: "Fecha de instalación", fieldYoutube: "Enlace YouTube",
+                fieldFacebook: "Enlace Facebook", projectUnit: "proyectos",
+                clickDetail: "Haga clic para detalles", clickLinks: "📌 Haga clic en enlaces" },
+            ru: { guideTitle: "Глобальные проекты", guideCountries: "стран", guideProjects: "проектов",
+                guideStat: "🔍 Нажмите на маркер", filterTitle: "📊 Фильтр", resetBtnText: "Сброс",
+                labelContinent: "🌎 Континент", labelCountry: "🏙️ Страна", labelCity: "🏙️ Город",
+                labelScene: "📂 Применение", labelFunction: "⚡ Функция",
+                labelPower: "🔋 Мощность (кВт)", labelCapacity: "🧊 Емкость (кВт·ч)",
+                labelInstallDate: "📅 Дата установки", applyBtnText: "🔍 Применить",
+                clearBtnText: "Очистить", exportBtnText: "📥 Экспорт Excel",
+                hotTitle: "🔥 Топ проекты", noData: "Нет проектов", fieldCountry: "Страна",
+                fieldCity: "Город", fieldProject: "Название проекта", fieldScene: "Применение",
+                fieldFunc: "Функция", fieldPower: "Мощность(кВт)", fieldCapacity: "Емкость(кВт·ч)",
+                fieldInstall: "Дата установки", fieldYoutube: "Ссылка YouTube",
+                fieldFacebook: "Ссылка Facebook", projectUnit: "проектов",
+                clickDetail: "Нажмите для подробностей", clickLinks: "📌 Нажмите на ссылки" }
+        };
+
+        // ================================================================
+        // 5. 地图初始化 (Leaflet)
+        // ================================================================
+        var map = null;
+        var markersLayer = null;
+        var currentLang = 'zh';
+        var currentProjects = [];
+        var popup = null;
+        var autoScrollInterval = null;
+        var scrollDirection = 1;
+        var currentLayer = 'osm';
+        var tileLayer = null;
+        var tileLayers = {};
+
+        // 国家坐标 [纬度, 经度]
+        var countryCoords = {
+            "缅甸": [19.0, 96.0],
+            "泰国": [13.5, 100.5],
+            "马尔代夫": [3.5, 73.0],
+            "柬埔寨": [12.5, 104.0],
+            "菲律宾": [13.0, 122.0],
+            "马来西亚": [3.0, 102.0],
+            "越南": [16.0, 106.0],
+            "蒙古": [46.0, 105.0],
+            "伊拉克": [33.0, 44.0],
+            "乌兹别克斯坦": [41.0, 64.0],
+            "俄罗斯": [60.0, 90.0],
+            "罗马尼亚": [46.0, 25.0],
+            "捷克": [50.0, 15.0],
+            "奥地利": [47.5, 14.0],
+            "格鲁吉亚": [42.0, 43.5],
+            "保加利亚": [42.7, 25.0],
+            "匈牙利": [47.0, 19.0],
+            "摩尔多瓦": [47.0, 28.5],
+            "波黑": [44.0, 17.8],
+            "科索沃": [42.6, 20.9],
+            "荷兰": [52.0, 5.0],
+            "克罗地亚": [45.0, 16.0],
+            "爱沙尼亚": [58.0, 25.0],
+            "摩洛哥": [31.0, -7.0],
+            "南非": [-30.0, 25.0],
+            "马达加斯加": [-18.0, 47.0],
+            "刚果": [-5.0, 25.0],
+            "塞内加尔": [14.0, -14.0],
+            "塞拉利昂": [8.5, -13.0],
+            "加纳": [7.5, -1.0],
+            "马里": [17.0, -4.0],
+            "尼日利亚": [9.0, 8.0],
+            "毛里塔尼亚": [20.0, -12.0],
+            "赞比亚": [-14.0, 28.0],
+            "索马里": [5.0, 46.0],
+            "索马里兰": [9.0, 46.0],
+            "秘鲁": [-10.0, -76.0],
+            "伯利兹": [17.0, -88.5],
+            "古巴": [22.0, -80.0],
+            "牙买加": [18.0, -77.3],
+            "洪都拉斯": [14.0, -87.0],
+            "多米尼加": [19.0, -70.0],
+            "厄瓜多尔": [-1.0, -78.0],
+            "波多黎各": [18.2, -66.3],
+            "波利尼西亚": [-17.0, -149.0]
+        };
+
+        var countryContinent = {
+            "缅甸": "Asia",
+            "泰国": "Asia",
+            "马尔代夫": "Asia",
+            "柬埔寨": "Asia",
+            "菲律宾": "Asia",
+            "马来西亚": "Asia",
+            "越南": "Asia",
+            "蒙古": "Asia",
+            "伊拉克": "Asia",
+            "乌兹别克斯坦": "Asia",
+            "俄罗斯": "Asia-Europe",
+            "罗马尼亚": "Europe",
+            "捷克": "Europe",
+            "奥地利": "Europe",
+            "格鲁吉亚": "Europe",
+            "保加利亚": "Europe",
+            "匈牙利": "Europe",
+            "摩尔多瓦": "Europe",
+            "波黑": "Europe",
+            "科索沃": "Europe",
+            "荷兰": "Europe",
+            "克罗地亚": "Europe",
+            "爱沙尼亚": "Europe",
+            "摩洛哥": "Africa",
+            "南非": "Africa",
+            "马达加斯加": "Africa",
+            "刚果": "Africa",
+            "塞内加尔": "Africa",
+            "塞拉利昂": "Africa",
+            "加纳": "Africa",
+            "马里": "Africa",
+            "尼日利亚": "Africa",
+            "毛里塔尼亚": "Africa",
+            "赞比亚": "Africa",
+            "索马里": "Africa",
+            "索马里兰": "Africa",
+            "秘鲁": "America",
+            "伯利兹": "America",
+            "古巴": "America",
+            "牙买加": "America",
+            "洪都拉斯": "America",
+            "多米尼加": "America",
+            "厄瓜多尔": "America",
+            "波多黎各": "America",
+            "波利尼西亚": "Pacific Islands"
+        };
+
+        function switchLayer(layerName) {
+            if (!map) return;
+            if (tileLayer) {
+                map.removeLayer(tileLayer);
+            }
+            var layer = tileLayers[layerName];
+            if (layer) {
+                tileLayer = layer;
+                map.addLayer(layer);
+                currentLayer = layerName;
+            }
+            // 更新按钮状态
+            var btns = document.querySelectorAll('#map-layer-toggle button');
+            for (var i = 0; i < btns.length; i++) {
+                btns[i].classList.remove('active');
+                if (btns[i].getAttribute('data-layer') === layerName) {
+                    btns[i].classList.add('active');
+                }
+            }
+        }
+
+        function initMap() {
+            var container = document.getElementById('map');
+            if (!container) return;
+
+            // 创建地图
+            map = L.map('map', {
+                center: [20, 20],
+                zoom: 2.2,
+                zoomControl: false,
+                fadeAnimation: true,
+                zoomAnimation: true,
+                inertia: true,
+                touchZoom: true,
+                scrollWheelZoom: true,
+                doubleClickZoom: true
+            });
+
+            // ---- 多个底图 ----
+            // 1. OpenStreetMap (标准)
+            tileLayers['osm'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                subdomains: ['a', 'b', 'c'],
+                maxZoom: 19,
+                minZoom: 1,
+                noWrap: false
+            });
+
+            // 2. 卫星图 (Esri)
+            tileLayers['satellite'] = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                    maxZoom: 19,
+                    minZoom: 1
+                });
+
+            // 3. 暗色地图
+            tileLayers['dark'] = L.tileLayer(
+                'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; CartoDB',
+                    subdomains: 'abcd',
+                    maxZoom: 19,
+                    minZoom: 1
+                });
+
+            // 默认使用OSM
+            tileLayer = tileLayers['osm'];
+            map.addLayer(tileLayer);
+
+            // 隐藏加载提示
+            document.getElementById('map-loading').style.display = 'none';
+
+            // 缩放控件
+            var zoomControl = L.control.zoom({ position: 'topright' });
+            zoomControl.addTo(map);
+
+            // 标记图层
+            markersLayer = L.layerGroup().addTo(map);
+
+            // 底图切换事件
+            document.getElementById('layerOsm').addEventListener('click', function() {
+                switchLayer('osm');
+            });
+            document.getElementById('layerSatellite').addEventListener('click', function() {
+                switchLayer('satellite');
+            });
+            document.getElementById('layerDark').addEventListener('click', function() {
+                switchLayer('dark');
+            });
+
+            // 初始化数据
+            currentProjects = getProjectsForLang('zh');
+            var uniqueCountries = [];
+            var seen = {};
+            for (var i = 0; i < rawProjects.length; i++) {
+                var c = rawProjects[i].country;
+                if (!seen[c]) {
+                    seen[c] = true;
+                    uniqueCountries.push(c);
+                }
+            }
+
+            var countrySelect = document.getElementById('filterCountry');
+            uniqueCountries.sort();
+            for (var j = 0; j < uniqueCountries.length; j++) {
+                var c = uniqueCountries[j];
+                var opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                opt.setAttribute('data-zh', c);
+                opt.setAttribute('data-en', c);
+                opt.setAttribute('data-fr', c);
+                opt.setAttribute('data-de', c);
+                opt.setAttribute('data-es', c);
+                opt.setAttribute('data-ru', c);
+                countrySelect.appendChild(opt);
+            }
+
+            renderMarkers(currentProjects);
+            renderHotProjects(currentProjects);
+            document.getElementById('countryCount').textContent = uniqueCountries.length;
+            document.getElementById('projectTotalCount').textContent = rawProjects.length;
+
+            // 事件绑定
+            document.getElementById('applyFilters').addEventListener('click', function() {
+                var filtered = getFilteredProjects();
+                renderMarkers(filtered);
+                renderHotProjects(filtered);
+                var unique = getUniqueCountries(filtered);
+                document.getElementById('countryCount').textContent = unique.length;
+                document.getElementById('projectTotalCount').textContent = filtered.length;
+            });
+
+            document.getElementById('resetAllFilters').addEventListener('click', resetAll);
+            document.getElementById('resetFilters').addEventListener('click', resetAll);
+
+            document.getElementById('filterContinent').addEventListener('change', function() {
+                var cont = this.value;
+                var sel = document.getElementById('filterCountry');
+                var curVal = sel.value;
+                sel.innerHTML =
+                    '<option value="all" data-zh="全部国家" data-en="All Countries" data-fr="Tous les pays" data-de="Alle Länder" data-es="Todos los países" data-ru="Все страны">全部国家</option>';
+                var filtered = uniqueCountries;
+                if (cont !== 'all') {
+                    filtered = uniqueCountries.filter(function(c) { return countryContinent[c] === cont; });
+                }
+                filtered.sort();
+                for (var k = 0; k < filtered.length; k++) {
+                    var c2 = filtered[k];
+                    var opt2 = document.createElement('option');
+                    opt2.value = c2;
+                    opt2.textContent = c2;
+                    opt2.setAttribute('data-zh', c2);
+                    opt2.setAttribute('data-en', c2);
+                    opt2.setAttribute('data-fr', c2);
+                    opt2.setAttribute('data-de', c2);
+                    opt2.setAttribute('data-es', c2);
+                    opt2.setAttribute('data-ru', c2);
+                    sel.appendChild(opt2);
+                }
+                if (curVal !== 'all' && filtered.indexOf(curVal) !== -1) sel.value = curVal;
+                updateLanguage(currentLang);
+            });
+
+            // 语言切换
+            var langButtons = document.querySelectorAll('.lang-switch button');
+            for (var l = 0; l < langButtons.length; l++) {
+                langButtons[l].addEventListener('click', function() {
+                    updateLanguage(this.getAttribute('data-lang'));
+                });
+            }
+
+            // 导出Excel
+            document.getElementById('exportExcel').addEventListener('click', function() {
+                var data = getFilteredProjects();
+                if (data.length === 0) {
+                    alert(uiTexts[currentLang].noData);
+                    return;
+                }
+                var t = uiTexts[currentLang];
+                var rows = [
+                    [t.fieldCountry, t.fieldCity, t.fieldProject, t.fieldScene, t.fieldFunc, t.fieldPower,
+                        t.fieldCapacity, t.fieldInstall, t.fieldYoutube, t.fieldFacebook
+                    ]
+                ];
+                for (var r = 0; r < data.length; r++) {
+                    var p = data[r];
+                    var raw = findRaw(p._rawCountry, p.title);
+                    rows.push([
+                        p.country, p.city || '', p.title, p.scene || '', p.func || '',
+                        p.power || '', p.capacity || '', p.install || '',
+                        (raw && raw.youtube && raw.youtube !== '暂未公开' && raw.youtube !== '未公布' &&
+                            raw.youtube !== '可以公开') ? raw.youtube : '',
+                        (raw && raw.facebook && raw.facebook !== '暂未公开' && raw.facebook !== '未公布' &&
+                            raw.facebook !== '可以公开') ? raw.facebook : ''
+                    ]);
+                }
+                var wb = XLSX.utils.book_new();
+                var ws = XLSX.utils.aoa_to_sheet(rows);
+                XLSX.utils.book_append_sheet(wb, ws, 'Projects');
+                XLSX.writeFile(wb,
+                    'Bluesun_Projects_' + currentLang.toUpperCase() + '_' + new Date().toISOString().slice(0,
+                        10) + '.xlsx');
+            });
+
+            // 自定义缩放
+            document.getElementById('zoomIn').addEventListener('click', function() {
+                var z = map.getZoom();
+                z = z * 1.05;
+                if (z > 16) z = 16;
+                map.setZoom(z);
+            });
+            document.getElementById('zoomOut').addEventListener('click', function() {
+                var z = map.getZoom();
+                z = z * 0.95;
+                if (z < 1) z = 1;
+                map.setZoom(z);
+            });
+
+            // 地图点击关闭弹窗
+            map.on('click', function() {
+                if (popup) {
+                    map.closePopup(popup);
+                    popup = null;
+                }
+            });
+
+            // 地图加载完成后隐藏loading
+            map.on('load', function() {
+                document.getElementById('map-loading').style.display = 'none';
+            });
+
+            // 如果10秒后仍未加载完成，也隐藏loading
+            setTimeout(function() {
+                document.getElementById('map-loading').style.display = 'none';
+            }, 10000);
+
+            updateLanguage('zh');
+        }
+
+        // ================================================================
+        // 6. 辅助函数
+        // ================================================================
+        function findRaw(country, title) {
+            for (var i = 0; i < rawProjects.length; i++) {
+                var p = rawProjects[i];
+                if (p.country === country && p.title === title) return p;
+            }
+            return null;
+        }
+
+        function getUniqueCountries(projects) {
+            var result = [];
+            var seen = {};
+            for (var i = 0; i < projects.length; i++) {
+                var c = projects[i].country;
+                if (!seen[c]) { seen[c] = true;
+                    result.push(c); }
+            }
+            return result;
+        }
+
+        function parseRange(val) {
+            if (!val) return null;
+            val = val.replace(/\s/g, '');
+            var parts = val.split('-');
+            if (parts.length === 2) {
+                var min = parseFloat(parts[0]);
+                var max = parseFloat(parts[1]);
+                if (!isNaN(min) && !isNaN(max)) return { min: min, max: max };
+            }
+            var num = parseFloat(val);
+            if (!isNaN(num)) return { min: num, max: num };
+            return null;
+        }
+
+        function matchRange(value, range) {
+            if (!range) return true;
+            if (!value) return false;
+            var num = parseFloat(value);
+            if (isNaN(num)) return false;
+            if (range.min === range.max) return num === range.min;
+            return num >= range.min && num <= range.max;
+        }
+
+        function getFilteredProjects() {
+            var continent = document.getElementById('filterContinent').value;
+            var country = document.getElementById('filterCountry').value;
+            var city = document.getElementById('filterCity').value.trim().toLowerCase();
+            var scene = document.getElementById('filterScene').value;
+            var func = document.getElementById('filterFunction').value;
+            var powerRaw = document.getElementById('filterPower').value.trim();
+            var capacityRaw = document.getElementById('filterCapacity').value.trim();
+            var installDate = document.getElementById('filterInstallDate').value.trim().toLowerCase();
+
+            var powerRange = parseRange(powerRaw);
+            var capacityRange = parseRange(capacityRaw);
+
+            var result = [];
+            for (var i = 0; i < currentProjects.length; i++) {
+                var p = currentProjects[i];
+                var raw = findRaw(p._rawCountry, p.title);
+                if (!raw) continue;
+                var cont = countryContinent[raw.country] || '';
+                if (continent !== 'all' && cont !== continent) continue;
+                if (country !== 'all' && raw.country !== country) continue;
+                if (city && raw.city.toLowerCase().indexOf(city) === -1) continue;
+                if (scene !== 'all' && raw.scene !== scene) continue;
+                if (func !== 'all' && raw.func !== func) continue;
+                if (powerRange && !matchRange(raw.power, powerRange)) continue;
+                if (capacityRange && !matchRange(raw.capacity, capacityRange)) continue;
+                if (installDate && raw.install.toLowerCase().indexOf(installDate) === -1) continue;
+                result.push(p);
+            }
+            return result;
+        }
+
+        function buildVideoLinks(p) {
+            var raw = findRaw(p._rawCountry, p.title);
+            var html = '<div class="video-links">';
+            if (raw && raw.youtube && raw.youtube !== '暂未公开' && raw.youtube !== '未公布' && raw.youtube !==
+                '可以公开' && raw.youtube !== '') {
+                html += '<a href="' + raw.youtube + '" target="_blank" rel="noopener noreferrer">▶ YouTube</a>';
+            } else {
+                html += '<span class="no-link">▶ YouTube ' + (currentLang === 'zh' ? '未公开' : 'N/A') + '</span>';
+            }
+            if (raw && raw.facebook && raw.facebook !== '暂未公开' && raw.facebook !== '未公布' && raw.facebook !==
+                '可以公开' && raw.facebook !== '') {
+                html += '<a href="' + raw.facebook + '" target="_blank" rel="noopener noreferrer">▶ Facebook</a>';
+            } else {
+                html += '<span class="no-link">▶ Facebook ' + (currentLang === 'zh' ? '未公开' : 'N/A') + '</span>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function buildInfoContent(country, projects) {
+            var t = uiTexts[currentLang];
+            var listHtml = '<div class="project-list">';
+            for (var i = 0; i < projects.length; i++) {
+                var p = projects[i];
+                listHtml +=
+                    '<div class="project-item">' +
+                    '<div class="title"><span>' + p.title + '</span><span class="badge">#' + (i + 1) + '</span></div>' +
+                    '<div class="desc">' +
+                    '<span>' + t.fieldScene + ': ' + (p.scene || '—') + '</span>' +
+                    '<span>' + t.fieldFunc + ': ' + (p.func || '—') + '</span>' +
+                    '<span>' + t.fieldPower + ': ' + (p.power || '') + '</span>' +
+                    '<span>' + t.fieldCapacity + ': ' + (p.capacity || '') + '</span>' +
+                    '<span>' + t.fieldInstall + ': ' + (p.install || '') + '</span>' +
+                    '</div>' +
+                    buildVideoLinks(p) +
+                    '</div>';
+            }
+            listHtml += '</div>';
+            return '<div class="custom-info-window">' +
+                '<div class="country-name">📍 ' + country + '</div>' +
+                '<div><span class="project-count-badge">' + projects.length + '</span> ' + t.projectUnit + '</div>' +
+                listHtml +
+                '<div class="project-detail-more">' + t.clickLinks + '</div>' +
+                '</div>';
+        }
+
+        function renderMarkers(projects) {
+            if (!markersLayer) return;
+            markersLayer.clearLayers();
+
+            var groups = {};
+            for (var i = 0; i < projects.length; i++) {
+                var p = projects[i];
+                if (!groups[p.country]) groups[p.country] = [];
+                groups[p.country].push(p);
+            }
+
+            var t = uiTexts[currentLang];
+
+            for (var country in groups) {
+                var projs = groups[country];
+                var rawCountry = projs[0]._rawCountry || country;
+                var coords = countryCoords[rawCountry];
+                if (!coords) continue;
+                var count = projs.length;
+                var sizeClass = 'small';
+                if (count >= 5) sizeClass = 'large';
+                else if (count >= 3) sizeClass = '';
+
+                var markerDiv = document.createElement('div');
+                markerDiv.className = 'custom-marker ' + sizeClass;
+                markerDiv.textContent = count;
+
+                var icon = L.divIcon({
+                    html: markerDiv.outerHTML,
+                    className: '',
+                    iconSize: [44, 44],
+                    iconAnchor: [22, 22]
+                });
+
+                var marker = L.marker([coords[0], coords[1]], { icon: icon });
+                marker._country = country;
+                marker._projects = projs;
+
+                marker.on('click', function(e) {
+                    var countryName = this._country;
+                    var projList = this._projects;
+                    var content = buildInfoContent(countryName, projList);
+                    if (popup) {
+                        map.closePopup(popup);
+                    }
+                    popup = L.popup({
+                        offset: [0, -20],
+                        maxWidth: 400,
+                        className: 'custom-popup'
+                    }).setLatLng(e.latlng)
+                        .setContent(content)
+                        .openOn(map);
+                });
+
+                markersLayer.addLayer(marker);
+            }
+        }
+
+        function renderHotProjects(projects) {
+            var container = document.getElementById('hotScroll');
+            if (!container) return;
+
+            var hotList = [];
+            for (var i = 0; i < projects.length; i++) {
+                var p = projects[i];
+                var power = parseFloat(p.power) || 0;
+                var cap = parseFloat(p.capacity) || 0;
+                if (power >= 500) hotList.push(p);
+                else if (cap >= 1000) hotList.push(p);
+                else if (p.title.toLowerCase().indexOf('mw') !== -1 || p.title.toLowerCase().indexOf('mwh') !== -1)
+                    hotList.push(p);
+                else {
+                    var rawScene = findRaw(p._rawCountry, p.title)?.scene || '';
+                    if (rawScene && ['矿场', '光伏电站', '国家电网', '农场'].indexOf(rawScene) !== -1) hotList.push(p);
+                }
+            }
+
+            var unique = [];
+            var seen = {};
+            for (var j = 0; j < hotList.length; j++) {
+                var p2 = hotList[j];
+                var key = p2.country + p2.title;
+                if (!seen[key]) { seen[key] = true;
+                    unique.push(p2); }
+            }
+            unique.sort(function(a, b) {
+                var pa = parseFloat(a.power) || 0;
+                var pb = parseFloat(b.power) || 0;
+                return pb - pa;
+            });
+
+            var display = unique.slice(0, 15);
+            document.getElementById('hotCount').textContent = display.length + (currentLang === 'zh' ?
+                ' 个项目' : ' ' + uiTexts[currentLang].projectUnit);
+
+            container.innerHTML = '';
+            if (display.length === 0) {
+                container.innerHTML = '<div style="padding:10px 20px;color:#3a5a7a;">' + uiTexts[currentLang].noData +
+                    '</div>';
+                stopAutoScroll();
+                return;
+            }
+
+            for (var k = 0; k < display.length; k++) {
+                var p3 = display[k];
+                var card = document.createElement('div');
+                card.className = 'hot-card';
+                var raw = findRaw(p3._rawCountry, p3.title);
+                var ytLink = '',
+                    fbLink = '';
+                if (raw && raw.youtube && raw.youtube !== '暂未公开' && raw.youtube !== '未公布' && raw.youtube !==
+                    '可以公开' && raw.youtube !== '') {
+                    ytLink = '<a href="' + raw.youtube + '" target="_blank" rel="noopener noreferrer">YouTube</a>';
+                } else {
+                    ytLink = '<span class="no-link">YouTube ' + (currentLang === 'zh' ? '未公开' : 'N/A') + '</span>';
+                }
+                if (raw && raw.facebook && raw.facebook !== '暂未公开' && raw.facebook !== '未公布' && raw.facebook !==
+                    '可以公开' && raw.facebook !== '') {
+                    fbLink = '<a href="' + raw.facebook + '" target="_blank" rel="noopener noreferrer">Facebook</a>';
+                } else {
+                    fbLink = '<span class="no-link">Facebook ' + (currentLang === 'zh' ? '未公开' : 'N/A') + '</span>';
+                }
+                card.innerHTML =
+                    '<div class="card-title">' + p3.title + '</div>' +
+                    '<div class="card-meta"><span>' + p3.country + '</span><span>' + (p3.scene || '—') + '</span></div>' +
+                    '<div class="card-power">⚡ ' + (p3.power ? p3.power + 'kW' : '') + (p3.capacity ? ' · ' + p3
+                        .capacity + 'kWh' : '') + '</div>' +
+                    '<div class="card-video-links">' + ytLink + ' ' + fbLink + '</div>';
+
+                card.addEventListener('click', function(p) {
+                    return function() {
+                        var rawCountry = p._rawCountry || p.country;
+                        var coords = countryCoords[rawCountry];
+                        if (coords) {
+                            map.setView([coords[0], coords[1]], 4);
+                            var target = null;
+                            markersLayer.eachLayer(function(layer) {
+                                if (layer._country === p.country) target = layer;
+                            });
+                            if (target) {
+                                target.fire('click', { latlng: [coords[0], coords[1]] });
+                            }
+                        }
+                    };
+                }(p3));
+                container.appendChild(card);
+            }
+
+            scrollDirection = 1;
+            container.scrollTo({ left: 0, behavior: 'smooth' });
+            setTimeout(function() { startAutoScroll(); }, 300);
+        }
+
+        function startAutoScroll() {
+            var container = document.getElementById('hotScroll');
+            if (!container) return;
+            if (autoScrollInterval) { clearInterval(autoScrollInterval);
+                autoScrollInterval = null; }
+            if (container.scrollWidth <= container.clientWidth) return;
+            autoScrollInterval = setInterval(function() {
+                if (!container) return;
+                if (container.matches && container.matches(':hover')) return;
+                var maxScroll = container.scrollWidth - container.clientWidth;
+                var currentScroll = container.scrollLeft;
+                if (currentScroll >= maxScroll - 1) scrollDirection = -1;
+                else if (currentScroll <= 0) scrollDirection = 1;
+                var newScroll = currentScroll + scrollDirection * 1.2;
+                if (newScroll < 0) newScroll = 0;
+                if (newScroll > maxScroll) newScroll = maxScroll;
+                container.scrollTo({ left: newScroll, behavior: 'smooth' });
+            }, 50);
+        }
+
+        function stopAutoScroll() {
+            if (autoScrollInterval) { clearInterval(autoScrollInterval);
+                autoScrollInterval = null; }
+        }
+
+        function resetAll() {
+            document.getElementById('filterContinent').value = 'all';
+            document.getElementById('filterCountry').value = 'all';
+            document.getElementById('filterCity').value = '';
+            document.getElementById('filterScene').value = 'all';
+            document.getElementById('filterFunction').value = 'all';
+            document.getElementById('filterPower').value = '';
+            document.getElementById('filterCapacity').value = '';
+            document.getElementById('filterInstallDate').value = '';
+            var filtered = currentProjects;
+            renderMarkers(filtered);
+            renderHotProjects(filtered);
+            var unique = getUniqueCountries(filtered);
+            document.getElementById('countryCount').textContent = unique.length;
+            document.getElementById('projectTotalCount').textContent = filtered.length;
+        }
+
+        function updateLanguage(lang) {
+            currentLang = lang;
+            var t = uiTexts[lang];
+            currentProjects = getProjectsForLang(lang);
+
+            document.getElementById('guideTitle').textContent = t.guideTitle;
+            document.getElementById('guideCountries').textContent = t.guideCountries;
+            document.getElementById('guideProjects').textContent = t.guideProjects;
+            document.getElementById('guideStat').textContent = t.guideStat;
+            document.getElementById('filterTitle').innerHTML = t.filterTitle;
+            document.getElementById('resetBtnText').textContent = t.resetBtnText;
+            document.getElementById('labelContinent').textContent = t.labelContinent;
+            document.getElementById('labelCountry').textContent = t.labelCountry;
+            document.getElementById('labelCity').textContent = t.labelCity;
+            document.getElementById('labelScene').textContent = t.labelScene;
+            document.getElementById('labelFunction').textContent = t.labelFunction;
+            document.getElementById('labelPower').textContent = t.labelPower;
+            document.getElementById('labelCapacity').textContent = t.labelCapacity;
+            document.getElementById('labelInstallDate').textContent = t.labelInstallDate;
+            document.getElementById('applyBtnText').textContent = t.applyBtnText;
+            document.getElementById('clearBtnText').textContent = t.clearBtnText;
+            document.getElementById('exportBtnText').textContent = t.exportBtnText;
+            document.getElementById('hotTitle').innerHTML = t.hotTitle;
+
+            var selects = document.querySelectorAll('#filterContinent option, #filterCountry option, #filterScene option, #filterFunction option');
+            for (var s = 0; s < selects.length; s++) {
+                var opt = selects[s];
+                var val = opt.getAttribute('data-' + lang);
+                if (val) opt.textContent = val;
+            }
+
+            var inputs = document.querySelectorAll('input[data-zh-placeholder]');
+            for (var inp = 0; inp < inputs.length; inp++) {
+                var input = inputs[inp];
+                var val2 = input.getAttribute('data-' + lang + '-placeholder');
+                if (val2) input.placeholder = val2;
+            }
+
+            var filtered = getFilteredProjects();
+            renderMarkers(filtered);
+            renderHotProjects(filtered);
+            var unique = getUniqueCountries(filtered);
+            document.getElementById('countryCount').textContent = unique.length;
+            document.getElementById('projectTotalCount').textContent = filtered.length;
+
+            var buttons = document.querySelectorAll('.lang-switch button');
+            for (var b = 0; b < buttons.length; b++) {
+                var btn = buttons[b];
+                if (btn.getAttribute('data-lang') === lang) {
+                    btn.className = 'active';
+                } else {
+                    btn.className = '';
+                }
+            }
+        }
+
+        // ================================================================
+        // 7. 启动
+        // ================================================================
+        console.log('Bluesun 全球项目地图已加载 ✅');
+        console.log('使用 Leaflet + OpenStreetMap');
+        console.log('底图切换: OSM / 卫星 / 暗色');
+        console.log('按钮循环缩放动画已启动 ✅');
+    </script>
+</body>
 </html>
